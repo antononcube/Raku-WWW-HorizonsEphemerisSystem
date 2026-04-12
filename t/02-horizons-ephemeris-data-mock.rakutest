@@ -1,0 +1,142 @@
+use v6.d;
+
+use Test;
+use WWW::HorizonsEphemerisSystem;
+use WWW::HorizonsEphemerisSystem::Client;
+
+class MockHorizonsClient {
+    has @.calls;
+
+    method !response(Str:D $payload) {
+        WWW::HorizonsEphemerisSystem::Client::HorizonsResponse.new(
+            success => True,
+            status  => 200,
+            reason  => 'OK',
+            request-url => 'mock://horizons',
+            headers => {},
+            body => '',
+            format => 'json',
+            json => {
+                signature => { version => '1.3', source => 'NASA/JPL Horizons API' },
+                result => $payload,
+            },
+        )
+    }
+
+    method vectors-ephemeris(*%params) {
+        @!calls.push: { method => 'vectors', params => %params };
+        self!response(q:to/VECT/);
+HEADER
+$$SOE
+JDTDB,X,Y,Z
+2451544.5,1.0,2.0,3.0
+$$EOE
+VECT
+    }
+
+    method observer-ephemeris(*%params) {
+        @!calls.push: { method => 'observer', params => %params };
+        self!response(q:to/OBS/);
+HEADER
+$$SOE
+Date_________JDTT,Azimuth_(a-app),Elevation_(a-app)
+2451544.5,120.5,35.2
+$$EOE
+OBS
+    }
+
+    method elements-ephemeris(*%params) {
+        @!calls.push: { method => 'elements', params => %params };
+        self!response(q:to/ELEM/);
+HEADER
+$$SOE
+JDTDB,EC,IN
+2451544.5,0.004,1.2
+2451545.5,0.005,1.3
+$$EOE
+ELEM
+    }
+}
+
+my $mock = MockHorizonsClient.new;
+
+# Command-style metadata calls from spec.
+is-deeply horizons-ephemeris-data('state', 'query-parameters'),
+          [<target center dates frame corrections>],
+          'state query-parameters command works';
+
+ok horizons-ephemeris-data('observer', 'properties').grep(* eq 'azimuth').so,
+   'observer properties command works';
+
+# 1) State default command.
+my @state-default = horizons-ephemeris-data('state', '499', 'position', :client($mock));
+is @state-default.elems, 1, 'state default returns one parsed row';
+is @state-default[0]<X>, '1.0', 'state result has parsed X column';
+
+my %call1 = $mock.calls[*-1];
+is %call1<method>, 'vectors', 'state uses vectors ephemeris call';
+is %call1<params><COMMAND>, "'499'", 'state command target is mapped';
+is %call1<params><VEC_TABLE>, "'2'", 'position maps to VEC_TABLE group 2';
+
+# 2) State specific date command.
+my @state-date = horizons-ephemeris-data(
+    'state',
+    ['499', { dates => 'now + 12 h' }],
+    'position',
+    :client($mock)
+);
+
+is @state-date.elems, 1, 'state with specific date returns parsed data';
+my %call2 = $mock.calls[*-1];
+ok (%call2<params><TLIST> // '').contains('now + 12 h'), 'single date maps to TLIST';
+
+# 3) Observer Tycho from Moscow for next 12 hours.
+my @observer = horizons-ephemeris-data(
+    'observer',
+    {
+        target => 'Tycho',
+        center => (55.7505, 37.6175),
+        dates => ['now', 'now + 12 h', '10 m'],
+    },
+    <azimuth elevation>,
+    :client($mock),
+);
+
+is @observer.elems, 1, 'observer example returns parsed row';
+is @observer[0]<Azimuth_(a-app)>, '120.5', 'observer azimuth is parsed';
+
+my %call3 = $mock.calls[*-1];
+is %call3<method>, 'observer', 'observer etype uses observer-ephemeris';
+is %call3<params><CENTER>, "'coord@399'", 'geo tuple center maps to coord center';
+is %call3<params><SITE_COORD>, "'37.6175,55.7505,0'", 'geo tuple maps to lon,lat,h';
+is %call3<params><STEP_SIZE>, "'10 m'", 'date interval step is mapped';
+is %call3<params><QUANTITIES>, "'4'", 'azimuth/elevation map to quantities=4';
+
+# 4) Orbital elements with explicit datetime list.
+my %assoc = horizons-ephemeris-data(
+    'orbital-elements',
+    ['617', {
+        center => '699',
+        dates => [
+            'Mon 10 Jan 2000 00:00:00',
+            'Tue 11 Jan 2000 00:00:00',
+        ],
+    }],
+    'all',
+    :modifier<association>,
+    :client($mock),
+);
+
+say (:%assoc);
+
+is %assoc.elems, 2, 'orbital-elements association has two keyed rows';
+my %call4 = $mock.calls[*-1];
+is %call4<method>, 'elements', 'orbital-elements uses elements-ephemeris';
+ok %call4<params><TLIST>.contains('Mon 10 Jan 2000 00:00:00'), 'datetime list maps to TLIST';
+
+# Raw mode exposes request envelope.
+my %raw = horizons-ephemeris-data('state', '499', 'position', :raw, :client($mock));
+ok %raw<api-params>:exists, 'raw mode includes api params';
+ok %raw<response>:exists, 'raw mode includes response';
+
+done-testing;

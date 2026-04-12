@@ -2,6 +2,7 @@ use v6.d;
 
 use Test;
 use WWW::HorizonsEphemerisSystem;
+use WWW::HorizonsEphemerisSystem::Client;
 
 class MockHTTPClient {
     has Str $.last-url is rw;
@@ -28,7 +29,7 @@ my $mock = MockHTTPClient.new(
     }
 );
 
-my $client = WWW::HorizonsEphemerisSystem.new(http-client => $mock);
+my $client = WWW::HorizonsEphemerisSystem::Client.new(http-client => $mock);
 
 is $client.percent-encode("'DES=141P;CAP;NOFRAG'"),
    '%27DES%3D141P%3BCAP%3BNOFRAG%27',

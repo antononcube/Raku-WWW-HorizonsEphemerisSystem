@@ -1,0 +1,32 @@
+use v6.d;
+
+use Test;
+use WWW::HorizonsEphemerisSystem;
+use WWW::HorizonsEphemerisSystem::Client;
+
+## 1
+my @data;
+lives-ok {
+    @data = horizons-ephemeris-data('state', '499', 'position');
+}, 'state position query lives, no date spec';
+
+is @data.elems, 1, 'one row returned';
+ok @data[0]<X>.defined, 'X field is present in live response';
+ok (try { @data[0]<X>.Str.trim.Num; True } // False),
+        'X parsed as numeric-like value';
+
+## 2
+lives-ok {
+    @data = horizons-ephemeris-data(
+        'state',
+        ['499', { dates => '2026-Apr-12 00:00:00' }],
+        'position',
+    );
+}, 'state position query lives, with date spec';
+
+is @data.elems, 1, 'one row returned';
+ok @data[0]<X>.defined, 'X field is present in live response';
+ok (try { @data[0]<X>.Str.trim.Num; True } // False),
+   'X parsed as numeric-like value';
+
+done-testing;
