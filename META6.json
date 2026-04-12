@@ -5,11 +5,12 @@
     "raku": "6.*",
     "auth": "zef:antononcube",
     "depends": [
-        "HTTP::Tiny:ver<0.2.7+>",
+        "HTTP::Tiny",
         "JSON::Fast:ver<0.19+>"
     ],
     "provides": {
-        "WWW::HorizonsEphemerisSystem": "lib/WWW/HorizonsEphemerisSystem.rakumod"
+        "WWW::HorizonsEphemerisSystem": "lib/WWW/HorizonsEphemerisSystem.rakumod",
+        "WWW::HorizonsEphemerisSystem::Client": "lib/WWW/HorizonsEphemerisSystem/Client.rakumod"
     },
     "license": "MIT",
     "tags": [
