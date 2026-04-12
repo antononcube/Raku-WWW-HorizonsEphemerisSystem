@@ -5,8 +5,8 @@
     "raku": "6.*",
     "auth": "zef:antononcube",
     "depends": [
-        "HTTP::Tiny",
-        "JSON::Fast"
+        "HTTP::Tiny:ver<0.2.7+>",
+        "JSON::Fast:ver<0.19+>"
     ],
     "provides": {
         "WWW::HorizonsEphemerisSystem": "lib/WWW/HorizonsEphemerisSystem.rakumod"
