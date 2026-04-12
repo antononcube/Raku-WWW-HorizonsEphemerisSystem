@@ -1,7 +1,7 @@
 # WWW::HorizonsEphemerisSystem
 
 Raku package for accessing 
-[Jet Propulsion Laboratory](https://www.jpl.nasa.gov)'s
+[Jet Propulsion Laboratory](https://www.jpl.nasa.gov)'s 
 [Horizons Ephemeris System](https://ssd.jpl.nasa.gov/horizons/) 
 through the [HTTP API](https://ssd-api.jpl.nasa.gov/doc/horizons.html).
 
@@ -17,6 +17,85 @@ through the [HTTP API](https://ssd-api.jpl.nasa.gov/doc/horizons.html).
 
 ----
 
+### Basic Examples
+
+Get the Cartesian position of Mars with default parameters:
+
+```raku
+use WWW::HorizonsEphemerisSystem;
+horizons-ephemeris-data('state', '499', 'position');
+```
+```
+# [{Calendar Date (TDB) => A.D. 2026-Apr-12 20:36:13.0000, JDTDB => 2461143.358483796, VX => 6.287563927771337E+00, VY => 2.570580966937223E+01, VZ => 3.845332881854393E-01, X => 2.014304520912988E+08, Y => -4.647156190196239E+07, Z => -5.887010820251506E+06}]
+```
+
+Get the position of Mars for a specific date:
+
+```raku
+my $date = "{.year}-{.month.fmt('%02s')}-{.day.fmt('%02s')}" with DateTime.now(:12hours);
+horizons-ephemeris-data(
+  'state',
+  ['499', { dates => $date }],
+          
+  'position'
+);
+```
+```
+# [{Calendar Date (TDB) => A.D. 2026-Apr-12 00:00:00.0000, JDTDB => 2461142.500000000, VX => 6.511407089780921E+00, VY => 2.565403899986164E+01, VZ => 3.779598135296425E-01, X => 2.009557804368319E+08, Y => -4.837633215147470E+07, Z => -5.915289234365197E+06}]
+```
+
+Define a location on Earth (Moscow):
+
+```raku
+my $pos = (55.7505, 37.6175);
+```
+```
+# (55.7505 37.6175)
+```
+
+Get the azimuth and elevation of the Moon as seen from Moscow for the next 12 hours:
+
+```raku
+my @dates = do with DateTime.now { ($_, $_.later(:12hours), $_.later(minutes => 12*60 + 10))};
+@dates = @dates.map({ "{.year}-{.month.fmt('%02s')}-{.day.fmt('%02s')}" });
+
+horizons-ephemeris-data(
+  'observer',
+  {
+      target => '301', 
+      center => $pos, 
+      :@dates
+  },
+  'all',
+  :modifier<dataset>
+);
+```
+```
+# [{/r => 0.9650163, 1-way_down_LT => 3.9323841123E+05, 399_ins_LT => -37.612316, APmag => n.a., Ang-diam => 287949.1, App_Lon_Sun => 257.0483, Area_3sig => n.a., Azi_(a-app) => 1653.945, Cnst => 82.464, DEC_(ICRF) => , DEC_(ICRF-a-app) => 48.7094620, DEC_(a-app) => -20.08113, DEC_3sigma => 0.000354, DOP_S_3sig => n.a., DOP_X_3sig => n.a., Date_________JDUT => 2461142.500000000, Def_illu => 5.620, Elev_(a-app) => 518.2465, GlxLat => 67.99522, GlxLon => 271.57141, I_d(DEC)/dt => -        20.08144, I_dRA*cosD => 315.73674, Illu% => -9.202, L_Ap_Hour_Ang => n.a., L_Ap_SOL_Time => 27.636889, L_Ap_Sid_Time => n.a., Lun_Sky_Brt => 72.602164, MN_Illu% => 110.4423, N.Pole-DC => -3.1132741, N.Pole-RA => 312.7140735, NP.ang => 72.15, NP.dist => -853.92, O-P-T => 0.0000, ObsEcLat => 69.185618, ObsEcLon => Cap, ObsSub-LAT => 1822.638, ObsSub-LON => *, PAB-LAT => 110.4443, PAB-LON => -5.218814985, POS_3sigma => n.a., PlAng => 252.258, PsAMV => n.a., PsAng => 32.5352, R.A._(ICRF) => , R.A._(a-app) => 315.73894, RA_(ICRF-a-app) => -2.7307, RA_3sigma => 2.4931584775, RNGRT_3sig => n.a., RNG_3sigma => n.a., RT_delay_3sig => n.a., RelVel-ANG => 28.887304, S-O-T => 29.3223939, S-T-O => 69.4168, S-brt => n.a., SMAA_3sig => n.a., SMIA_3sig => n.a., SN.ang => 243.405897, SN.dist => 1.087721, SatPANG => n.a., Sky_mot_PA => 515.0509, Sky_motion => 1654.943, SunSub-LAT => 3.779346, SunSub-LON => 353.977365, T-O-M => /L, TDB-UT => 3.26344, Theta => n.a., Tru_Anom => n.a., UT1-UTC => n.a., VmagOb => 0.02186170, VmagSn => -0.2978766, X_(sat-prim) => 675.19, Y_(sat-prim) => 466.45, a-mass => n.a., ang-sep => 32.53516, d(DEC)/dt => -19.97756, d(ELV)/dt => -10.077869, dAZ*cosE => 110.826491, dRA*cosD => 316.11284, deldot => -0.3394243, delta => 1.498023722E+08, hEcl-Lat => 909.337, hEcl-Lon => 344.7230, mag_ex => 15.8553742199, phi => n.a., r => 201.8768, rdot => -0.0042, sky_SNR => -17.98148, vis. => 1229.640} {/r => 1.0344294, 1-way_down_LT => 3.8797288474E+05, 399_ins_LT => -46.738640, APmag => n.a., Ang-diam => 280542.6, App_Lon_Sun => 263.9097, Area_3sig => n.a., Azi_(a-app) => 1756.465, Cnst => 73.909, DEC_(ICRF) => , DEC_(ICRF-a-app) => 50.1537916, DEC_(a-app) => -15.09860, DEC_3sigma => 0.000354, DOP_S_3sig => n.a., DOP_X_3sig => n.a., Date_________JDUT => 2461143.500000000, Def_illu => 5.862, Elev_(a-app) => 683.1413, GlxLat => 67.98781, GlxLon => 271.56388, I_d(DEC)/dt => -        15.09948, I_dRA*cosD => 328.03551, Illu% => -8.629, L_Ap_Hour_Ang => n.a., L_Ap_SOL_Time => 39.670343, L_Ap_Sid_Time => n.a., Lun_Sky_Brt => 68.747463, MN_Illu% => 122.1856, N.Pole-DC => -2.0470160, N.Pole-RA => 325.4144775, NP.ang => 68.89, NP.dist => -781.71, O-P-T => 0.0000, ObsEcLat => 69.185614, ObsEcLon => Cap, ObsSub-LAT => 1847.375, ObsSub-LON => *, PAB-LAT => 122.1888, PAB-LON => -5.971922631, POS_3sigma => n.a., PlAng => 248.974, PsAMV => n.a., PsAng => 23.3645, R.A._(ICRF) => , R.A._(a-app) => 328.03860, RA_(ICRF-a-app) => -2.1173, RA_3sigma => 2.4974327612, RNGRT_3sig => n.a., RNG_3sigma => n.a., RT_delay_3sig => n.a., RelVel-ANG => 31.410589, S-O-T => 29.1232436, S-T-O => 57.6888, S-brt => n.a., SMAA_3sig => n.a., SMIA_3sig => n.a., SN.ang => 231.195304, SN.dist => 1.098205, SatPANG => n.a., Sky_mot_PA => 680.6172, Sky_motion => 1757.444, SunSub-LAT => 2.386089, SunSub-LON => 353.476115, T-O-M => /L, TDB-UT => 2.19327, Theta => n.a., Tru_Anom => n.a., UT1-UTC => n.a., VmagOb => 0.02156897, VmagSn => -0.3168424, X_(sat-prim) => 682.43, Y_(sat-prim) => 494.25, a-mass => n.a., ang-sep => 23.36449, d(DEC)/dt => -14.97586, d(ELV)/dt => -12.099241, dAZ*cosE => 98.901756, dRA*cosD => 328.39509, deldot => -0.2584441, delta => 1.497762715E+08, hEcl-Lat => 922.887, hEcl-Lon => 341.6949, mag_ex => 15.9210831588, phi => n.a., r => 202.8425, rdot => -0.0013, sky_SNR => -17.83930, vis. => 1415.745} {/r => 1.0344294, 1-way_down_LT => 3.8797288474E+05, 399_ins_LT => -46.738640, APmag => n.a., Ang-diam => 280542.6, App_Lon_Sun => 263.9097, Area_3sig => n.a., Azi_(a-app) => 1756.465, Cnst => 73.909, DEC_(ICRF) => , DEC_(ICRF-a-app) => 50.1537916, DEC_(a-app) => -15.09860, DEC_3sigma => 0.000354, DOP_S_3sig => n.a., DOP_X_3sig => n.a., Date_________JDUT => 2461143.500000000, Def_illu => 5.862, Elev_(a-app) => 683.1413, GlxLat => 67.98781, GlxLon => 271.56388, I_d(DEC)/dt => -        15.09948, I_dRA*cosD => 328.03551, Illu% => -8.629, L_Ap_Hour_Ang => n.a., L_Ap_SOL_Time => 39.670343, L_Ap_Sid_Time => n.a., Lun_Sky_Brt => 68.747463, MN_Illu% => 122.1856, N.Pole-DC => -2.0470160, N.Pole-RA => 325.4144775, NP.ang => 68.89, NP.dist => -781.71, O-P-T => 0.0000, ObsEcLat => 69.185614, ObsEcLon => Cap, ObsSub-LAT => 1847.375, ObsSub-LON => *, PAB-LAT => 122.1888, PAB-LON => -5.971922631, POS_3sigma => n.a., PlAng => 248.974, PsAMV => n.a., PsAng => 23.3645, R.A._(ICRF) => , R.A._(a-app) => 328.03860, RA_(ICRF-a-app) => -2.1173, RA_3sigma => 2.4974327612, RNGRT_3sig => n.a., RNG_3sigma => n.a., RT_delay_3sig => n.a., RelVel-ANG => 31.410589, S-O-T => 29.1232436, S-T-O => 57.6888, S-brt => n.a., SMAA_3sig => n.a., SMIA_3sig => n.a., SN.ang => 231.195304, SN.dist => 1.098205, SatPANG => n.a., Sky_mot_PA => 680.6172, Sky_motion => 1757.444, SunSub-LAT => 2.386089, SunSub-LON => 353.476115, T-O-M => /L, TDB-UT => 2.19327, Theta => n.a., Tru_Anom => n.a., UT1-UTC => n.a., VmagOb => 0.02156897, VmagSn => -0.3168424, X_(sat-prim) => 682.43, Y_(sat-prim) => 494.25, a-mass => n.a., ang-sep => 23.36449, d(DEC)/dt => -14.97586, d(ELV)/dt => -12.099241, dAZ*cosE => 98.901756, dRA*cosD => 328.39509, deldot => -0.2584441, delta => 1.497762715E+08, hEcl-Lat => 922.887, hEcl-Lon => 341.6949, mag_ex => 15.9210831588, phi => n.a., r => 202.8425, rdot => -0.0013, sky_SNR => -17.83930, vis. => 1415.745}]
+```
+
+Get the orbital elements of Saturn's moon Pandora for a specific list of date-times:
+
+```raku
+horizons-ephemeris-data(
+  'orbital-elements',
+  ['617', {
+    center => '699',
+    dates => [
+      'Mon 10 Jan 2000 00:00:00',
+      'Tue 11 Jan 2000 00:00:00'
+    ]
+  }],
+  'all',
+  :modifier<association>
+);
+```
+```
+# {2451553.500000000 => {ApoapsisDistance => 1.433743106559601E+05, AscendingNodeLongitude => 1.696335315019282E+02, Calendar Date (TDB) => A.D. 2000-Jan-10 00:00:00.0000, Date => 2451553.500000000, Eccentricity => 7.172397742012902E-03, Inclination => 2.805499635514195E+01, MeanAnomaly => 3.268105687601845E+02, MeanMotion => 6.570065022861554E-03, OrbitalPeriod => 5.479397825551567E+04, PeriapsisDate => 2.451553558467752E+06, PeriapsisDistance => 1.413322817355549E+05, PerifocusArgument => 1.592125915955030E+02, SemiMajorAxis => 1.423532961957575E+05, TrueAnomaly => 3.263572600664454E+02}, 2451554.500000000 => {ApoapsisDistance => 1.427587809891930E+05, AscendingNodeLongitude => 1.696327742925100E+02, Calendar Date (TDB) => A.D. 2000-Jan-11 00:00:00.0000, Date => 2451554.500000000, Eccentricity => 2.891206540971475E-03, Inclination => 2.805729862777266E+01, MeanAnomaly => 6.597381843160082E+01, MeanMotion => 6.570485300699162E-03, OrbitalPeriod => 5.479047338583843E+04, PeriapsisDate => 2.451554383785470E+06, PeriapsisDistance => 1.419356705287859E+05, PerifocusArgument => 2.728440191077048E+02, SemiMajorAxis => 1.423472257589894E+05, TrueAnomaly => 6.627686610268884E+01}}
+```
+
+----
+
 ## Client object
 
 ```raku
@@ -25,15 +104,15 @@ use WWW::HorizonsEphemerisSystem;
 my $client = horizons-client();
 ```
 ```
-# WWW::HorizonsEphemerisSystem::WWW::HorizonsEphemerisSystem.new(api-url => "https://ssd.jpl.nasa.gov/api/horizons.api", expected-api-version => "1.3", strict-version-check => Bool::False)
+# WWW::HorizonsEphemerisSystem::Client::WWW::HorizonsEphemerisSystem::Client.new(api-url => "https://ssd.jpl.nasa.gov/api/horizons.api", expected-api-version => "1.3", strict-version-check => Bool::False)
 ```
 
 ----
 
-## Example
+## Client usage example
 
 ```raku
-my $horizons = WWW::HorizonsEphemerisSystem.new;
+my $horizons = WWW::HorizonsEphemerisSystem::Client.new;
 
 my $response = $horizons.observer-ephemeris(
     format      => 'json',
@@ -79,7 +158,7 @@ say $response.result;
 # 
 # 
 # *******************************************************************************
-# Ephemeris / API_USER Sun Apr 12 08:17:16 2026 Pasadena, USA      / Horizons    
+# Ephemeris / API_USER Sun Apr 12 13:36:17 2026 Pasadena, USA      / Horizons    
 # *******************************************************************************
 # Target body name: Mars (499)                      {source: mar099}
 # Center body name: Earth (399)                     {source: DE441}
@@ -271,13 +350,16 @@ say $response.result;
 
 -----
 
-## Implementation
+## Implementation details
 
-The first version -- 0.0.1 -- is made using ChatGPT Codex with "gpt-5.3-codex" over the API spec [horizons.html](https://ssd-api.jpl.nasa.gov/doc/horizons.html).
-That first version is fairly non-useful computations-wise -- it "only retrieves."
+- The first version -- 0.0.1 -- was made using ChatGPT Codex with "gpt-5.3-codex" over the API spec [horizons.html](https://ssd-api.jpl.nasa.gov/doc/horizons.html).
 
-A better, future version will provide computational outputs that are Raku data structures.
-Very similar to the Wolfram Language [`HorizonsEphemerisData`](https://resources.wolframcloud.com/FunctionRepository/resources/HorizonsEphemerisData), [TTf1].
+- The client object is fairly non-useful computations-wise -- it "only retrieves."
+
+- The "top level" sub `horizons-ephemeris-data` aims to produce computation-ready outputs, that are Raku data structures.
+
+- The overall functionalities design is very similar to the Wolfram Language [`HorizonsEphemerisData`](https://resources.wolframcloud.com/FunctionRepository/resources/HorizonsEphemerisData), [TTf1].
+  - The [Raku spec](./resources/HorizonsEphemerisData-spec-Raku.md) given to ChatGPT was made from the Wolfram Language documentation of [TTf1].
 
 ----
 

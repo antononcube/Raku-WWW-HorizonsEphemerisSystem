@@ -17,6 +17,70 @@ through the [HTTP API](https://ssd-api.jpl.nasa.gov/doc/horizons.html).
 
 ----
 
+### Basic Examples
+
+Get the Cartesian position of Mars with default parameters:
+
+```raku
+use WWW::HorizonsEphemerisSystem;
+horizons-ephemeris-data('state', '499', 'position');
+```
+
+Get the position of Mars for a specific date:
+
+```raku
+my $date = "{.year}-{.month.fmt('%02s')}-{.day.fmt('%02s')}" with DateTime.now(:12hours);
+horizons-ephemeris-data(
+  'state',
+  ['499', { dates => $date }],
+          
+  'position'
+);
+```
+
+Define a location on Earth (Moscow):
+
+```raku
+my $pos = (55.7505, 37.6175);
+```
+
+Get the azimuth and elevation of the Moon as seen from Moscow for the next 12 hours:
+
+```raku
+my @dates = do with DateTime.now { ($_, $_.later(:12hours), $_.later(minutes => 12*60 + 10))};
+@dates = @dates.map({ "{.year}-{.month.fmt('%02s')}-{.day.fmt('%02s')}" });
+
+horizons-ephemeris-data(
+  'observer',
+  {
+      target => '301', 
+      center => $pos, 
+      :@dates
+  },
+  'all',
+  :modifier<dataset>
+);
+```
+
+Get the orbital elements of Saturn's moon Pandora for a specific list of date-times:
+
+```raku
+horizons-ephemeris-data(
+  'orbital-elements',
+  ['617', {
+    center => '699',
+    dates => [
+      'Mon 10 Jan 2000 00:00:00',
+      'Tue 11 Jan 2000 00:00:00'
+    ]
+  }],
+  'all',
+  :modifier<association>
+);
+```
+
+----
+
 ## Client object
 
 ```raku
@@ -27,10 +91,10 @@ my $client = horizons-client();
 
 ----
 
-## Example
+## Client usage example
 
 ```raku
-my $horizons = WWW::HorizonsEphemerisSystem.new;
+my $horizons = WWW::HorizonsEphemerisSystem::Client.new;
 
 my $response = $horizons.observer-ephemeris(
     format      => 'json',
@@ -50,13 +114,16 @@ say $response.result;
 
 -----
 
-## Implementation
+## Implementation details
 
-The first version -- 0.0.1 -- is made using ChatGPT Codex with "gpt-5.3-codex" over the API spec [horizons.html](https://ssd-api.jpl.nasa.gov/doc/horizons.html).
-That first version is fairly non-useful computations-wise -- it "only retrieves."
+- The first version -- 0.0.1 -- was made using ChatGPT Codex with "gpt-5.3-codex" over the API spec [horizons.html](https://ssd-api.jpl.nasa.gov/doc/horizons.html).
 
-A better, future version will provide computational outputs that are Raku data structures.
-Very similar to the Wolfram Language [`HorizonsEphemerisData`](https://resources.wolframcloud.com/FunctionRepository/resources/HorizonsEphemerisData), [TTf1].
+- The client object is fairly non-useful computations-wise -- it "only retrieves."
+
+- The "top level" sub `horizons-ephemeris-data` aims to produce computation-ready outputs, that are Raku data structures.
+
+- The overall functionalities design is very similar to the Wolfram Language [`HorizonsEphemerisData`](https://resources.wolframcloud.com/FunctionRepository/resources/HorizonsEphemerisData), [TTf1].
+  - The [Raku spec](./resources/HorizonsEphemerisData-spec-Raku.md) given to ChatGPT was made from the Wolfram Language documentation of [TTf1].
 
 ----
 
