@@ -179,8 +179,7 @@ HorizonsEphemerisData["State", "-125544", All]
 ```
 
 ```wl
-Out[] = {{DateObject[{2022, 6, 21, 21, 10, 54.646}, "Instant", "Gregorian", 
-   0., "TDB"], Quantity[3445.12, "Kilometers"], 
+Out[] = {{DateObject[{2022, 6, 21, 21, 10, 54.646}, "Instant", "Gregorian", 0., "TDB"], Quantity[3445.12, "Kilometers"], 
   Quantity[-2526.58, "Kilometers"], Quantity[-8968.02, "Kilometers"], 
   Quantity[6.01083, ("Kilometers")/("Seconds")], 
   Quantity[-1.85033, ("Kilometers")/("Seconds")], 
@@ -198,10 +197,8 @@ Get the trajectory of the Cassini spacecraft around Saturn (the Horizons ID of C
 cassini =
 HorizonsEphemerisData[
 "State", {"-82", <|"Center" -> Entity["Planet", "Saturn"],
-"Dates" -> {DateObject[{1997, 10, 16, 0, 0, 0.`}, "Instant", 
-        "Gregorian", 0.`],
-DateObject[{2017, 9, 15, 0, 0, 4.`}, "Instant", "Gregorian", 
-        0.`], Quantity[1, "Days"]}|>}, "Position"];
+"Dates" -> {DateObject[{1997, 10, 16, 0, 0, 0.`}, "Instant", "Gregorian", 0.`],
+DateObject[{2017, 9, 15, 0, 0, 4.`}, "Instant", "Gregorian", 0.`], Quantity[1, "Days"]}|>}, "Position"];
 ```
 
 Plot the fly of Cassini:
