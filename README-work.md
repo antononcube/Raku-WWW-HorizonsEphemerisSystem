@@ -1,4 +1,4 @@
-# Raku-WWW-HorizonsEphemerisSystem
+# WWW::HorizonsEphemerisSystem
 
 Raku package for accessing 
 [Jet Propulsion Laboratory](https://www.jpl.nasa.gov)'s 
