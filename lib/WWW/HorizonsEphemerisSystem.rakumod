@@ -82,23 +82,23 @@ our sub horizons-ephemeris-data(
     Bool :$raw = False,
     Bool :$throw = True,
 ) is export {
-    my $etype-n = _norm($etype);
+    my $etype-n = norm($etype);
     die "Invalid ephemeris type '$etype'. Expected one of: {@ETYPES.join(', ')}"
         unless $etype-n eq any(@ETYPES);
 
     if $query ~~ Str {
-        my $meta = _norm($query);
+        my $meta = norm($query);
         return %QUERY-PARAMETERS{$etype-n}.Array if $meta eq 'query-parameters';
         return %PROPERTIES{$etype-n}.Array if $meta eq 'properties';
     }
 
-    my $modifier-n = _norm($modifier);
+    my $modifier-n = norm($modifier);
     die "Invalid modifier '$modifier'. Expected one of: {@MODIFIERS.join(', ')}"
         unless $modifier-n eq any(@MODIFIERS);
 
     my $c = $client // horizons-client();
-    my %q = _normalize-query($query);
-    my %api = _build-api-params($etype-n, %q, $properties);
+    my %q = normalize-query($query);
+    my %api = build-api-params($etype-n, %q, $properties);
 
     my $response = do given $etype-n {
         when 'state' {
@@ -120,7 +120,7 @@ our sub horizons-ephemeris-data(
     } if $raw;
 
     my $result = $response.result;
-    my @rows = _parse-result-csv($result);
+    my @rows = parse-result-csv($result);
 
     return $result unless @rows.elems;
 
@@ -138,11 +138,11 @@ our sub horizons-ephemeris-data(
     @rows;
 }
 
-sub _norm($x --> Str:D) {
+sub norm($x --> Str:D) {
     $x.Str.trim.lc.subst('_', '-', :g).subst(' ', '-', :g)
 }
 
-sub _normalize-query($query --> Hash:D) {
+sub normalize-query($query --> Hash:D) {
     if $query ~~ Associative {
         return $query.Hash;
     }
@@ -156,7 +156,7 @@ sub _normalize-query($query --> Hash:D) {
     return { target => $query };
 }
 
-sub _build-api-params(Str:D $etype, %query, $properties --> Hash:D) {
+sub build-api-params(Str:D $etype, %query, $properties --> Hash:D) {
     my %q = %query.map({ .key => .value });
     my %api = (
         format      => 'json',
@@ -167,10 +167,10 @@ sub _build-api-params(Str:D $etype, %query, $properties --> Hash:D) {
     ).Hash;
 
     my $target = %q<target> // die "Query must include a target";
-    %api<COMMAND> = _command-value($target);
+    %api<COMMAND> = command-value($target);
 
     if %q<center>:exists {
-        for _center-params(%q<center>).pairs -> $p {
+        for center-params(%q<center>).pairs -> $p {
             %api{$p.key} = $p.value;
         }
     }
@@ -179,17 +179,17 @@ sub _build-api-params(Str:D $etype, %query, $properties --> Hash:D) {
     }
 
     if %q<dates>:exists {
-        for _dates-params(%q<dates>).pairs -> $p {
+        for dates-params(%q<dates>).pairs -> $p {
             %api{$p.key} = $p.value;
         }
     }
     else {
-        %api<TLIST> = "'" ~ _default-date-time-utc() ~ "'";
+        %api<TLIST> = "'" ~ default-date-time-utc() ~ "'";
         %api<TLIST_TYPE> = 'CAL';
     }
 
     if %q<frame>:exists {
-        my $f = _norm(%q<frame>);
+        my $f = norm(%q<frame>);
         my %frame = %FRAME-MAP{$f} // die "Unsupported frame '%q<frame>'";
         for %frame.pairs -> $p {
             %api{$p.key} = $p.value;
@@ -197,9 +197,9 @@ sub _build-api-params(Str:D $etype, %query, $properties --> Hash:D) {
     }
 
     if $etype eq 'state' {
-        my $corr = _norm(%q<corrections> // 'none');
+        my $corr = norm(%q<corrections> // 'none');
         %api<VEC_CORR> = %STATE-CORR{$corr} // die "Unsupported corrections '%q<corrections>'";
-        %api<VEC_TABLE> = "'" ~ _state-columns-group($properties) ~ "'";
+        %api<VEC_TABLE> = "'" ~ state-columns-group($properties) ~ "'";
     }
 
     if $etype eq 'observer' {
@@ -207,9 +207,9 @@ sub _build-api-params(Str:D $etype, %query, $properties --> Hash:D) {
         %api<ANG_FORMAT> = 'DEG';
         %api<RANGE_UNITS> = 'KM';
 
-        %api<APPARENT> = _bool-word(%q<earth-atmospheric-refraction> // False, 'REFRACTED', 'AIRLESS');
-        %api<SKIP_DAYLT> = _bool-word(%q<skip-day> // False, 'YES', 'NO');
-        %api<R_T_S_ONLY> = _bool-word(%q<rise-transit-set-only> // False, 'YES', 'NO');
+        %api<APPARENT> = bool-word(%q<earth-atmospheric-refraction> // False, 'REFRACTED', 'AIRLESS');
+        %api<SKIP_DAYLT> = bool-word(%q<skip-day> // False, 'YES', 'NO');
+        %api<R_T_S_ONLY> = bool-word(%q<rise-transit-set-only> // False, 'YES', 'NO');
 
         %api<ELEV_CUT> = "'" ~ (%q<min-elevation> // -90).Str ~ "'";
         %api<AIRMASS> = "'" ~ (%q<max-relative-airmass> // 38).Str ~ "'";
@@ -221,36 +221,36 @@ sub _build-api-params(Str:D $etype, %query, $properties --> Hash:D) {
         $rate = 0 if $rate ~~ Real && $rate == Inf;
         %api<ANG_RATE_CUTOFF> = "'" ~ $rate.Str ~ "'";
 
-        %api<QUANTITIES> = "'" ~ _observer-quantities($properties) ~ "'";
+        %api<QUANTITIES> = "'" ~ observer-quantities($properties) ~ "'";
     }
 
     %api;
 }
 
-sub _bool-word($v, Str:D $true, Str:D $false --> Str:D) {
+sub bool-word($v, Str:D $true, Str:D $false --> Str:D) {
     "'" ~ ($v ?? $true !! $false) ~ "'"
 }
 
-sub _is-geo-tuple($x --> Bool:D) {
+sub is-geo-tuple($x --> Bool:D) {
     return False unless $x ~~ Positional;
     my @v = $x.list;
     return False unless @v.elems == 2 || @v.elems == 3;
     @v.all ~~ Numeric;
 }
 
-sub _command-value($target --> Str:D) {
-    if $target ~~ Pair && _is-geo-tuple($target.value) {
-        return _location-command($target.value, $target.key.Str);
+sub command-value($target --> Str:D) {
+    if $target ~~ Pair && is-geo-tuple($target.value) {
+        return location-command($target.value, $target.key.Str);
     }
 
-    if _is-geo-tuple($target) {
-        return _location-command($target, '399');
+    if is-geo-tuple($target) {
+        return location-command($target, '399');
     }
 
     "'" ~ $target.Str ~ "'";
 }
 
-sub _location-command($tuple, Str:D $datum --> Str:D) {
+sub location-command($tuple, Str:D $datum --> Str:D) {
     my @v = $tuple.list;
     my $lat = @v[0].Str;
     my $lon = @v[1].Str;
@@ -258,19 +258,19 @@ sub _location-command($tuple, Str:D $datum --> Str:D) {
     "'g: $lon, $lat, $h @ $datum'";
 }
 
-sub _center-params($center --> Hash:D) {
-    if $center ~~ Pair && _is-geo-tuple($center.value) {
-        return _location-center-params($center.value, $center.key.Str);
+sub center-params($center --> Hash:D) {
+    if $center ~~ Pair && is-geo-tuple($center.value) {
+        return location-center-params($center.value, $center.key.Str);
     }
 
-    if _is-geo-tuple($center) {
-        return _location-center-params($center, '399');
+    if is-geo-tuple($center) {
+        return location-center-params($center, '399');
     }
 
     return { CENTER => "'" ~ $center.Str ~ "'" };
 }
 
-sub _location-center-params($tuple, Str:D $datum --> Hash:D) {
+sub location-center-params($tuple, Str:D $datum --> Hash:D) {
     my @v = $tuple.list;
     my $lat = @v[0].Str;
     my $lon = @v[1].Str;
@@ -283,15 +283,15 @@ sub _location-center-params($tuple, Str:D $datum --> Hash:D) {
     }
 }
 
-sub _looks-like-step(Str:D $s --> Bool:D) {
+sub looks-like-step(Str:D $s --> Bool:D) {
     so $s.lc ~~ /^\s*\d+ [ '.' \d+ ]? \s* <[smhdy]>+ \s*$/;
 }
 
-sub _dates-params($dates --> Hash:D) {
+sub dates-params($dates --> Hash:D) {
     if $dates ~~ Positional {
         my @d = $dates.list;
 
-        if @d.elems == 3 && @d[0] ~~ Str && @d[1] ~~ Str && @d[2] ~~ Str && _looks-like-step(@d[2]) {
+        if @d.elems == 3 && @d[0] ~~ Str && @d[1] ~~ Str && @d[2] ~~ Str && looks-like-step(@d[2]) {
             return {
                 START_TIME => "'" ~ @d[0] ~ "'",
                 STOP_TIME  => "'" ~ @d[1] ~ "'",
@@ -312,7 +312,7 @@ sub _dates-params($dates --> Hash:D) {
     }
 }
 
-sub _default-date-time-utc(--> Str:D) {
+sub default-date-time-utc(--> Str:D) {
     my $now = DateTime.now.utc;
     sprintf(
         '%04d-%02d-%02d %02d:%02d:%02d',
@@ -325,11 +325,11 @@ sub _default-date-time-utc(--> Str:D) {
     );
 }
 
-sub _expand-state-properties($properties --> Array:D) {
+sub expand-state-properties($properties --> Array:D) {
     my @in = $properties ~~ Positional ?? $properties.list !! [$properties];
     my @out;
 
-    for @in.map({ _norm($_) }) -> $p {
+    for @in.map({ norm($_) }) -> $p {
         if %STATE-COMPOUND{$p}:exists {
             @out.append: %STATE-COMPOUND{$p}.list;
         }
@@ -341,8 +341,8 @@ sub _expand-state-properties($properties --> Array:D) {
     @out.unique.Array;
 }
 
-sub _state-columns-group($properties --> Str:D) {
-    my @props = _expand-state-properties($properties);
+sub state-columns-group($properties --> Str:D) {
+    my @props = expand-state-properties($properties);
 
     my $has-uncertainty = @props.grep(* ~~ /'uncertainty'/).so;
     my $has-range = @props.grep(* eq any(<distance radial-velocity light-time>)).so;
@@ -355,9 +355,9 @@ sub _state-columns-group($properties --> Str:D) {
     @groups.sort({ %STATE-GROUP-RANK{$^a} <=> %STATE-GROUP-RANK{$^b} })[0];
 }
 
-sub _observer-quantities($properties --> Str:D) {
+sub observer-quantities($properties --> Str:D) {
     my @props = $properties ~~ Positional ?? $properties.list !! [$properties];
-    @props = @props.map({ _norm($_) });
+    @props = @props.map({ norm($_) });
 
     return 'A' if @props.grep(* eq 'all').so;
 
@@ -365,7 +365,7 @@ sub _observer-quantities($properties --> Str:D) {
     @codes.join(',');
 }
 
-sub _parse-result-csv(Str:D $result --> Array:D) {
+sub parse-result-csv(Str:D $result --> Array:D) {
     my @all = $result.lines;
     return [] unless @all.elems;
 
@@ -396,14 +396,14 @@ sub _parse-result-csv(Str:D $result --> Array:D) {
     }
     return [] unless $header-line.defined;
 
-    my @headers = _split-csv-line($header-line)
+    my @headers = split-csv-line($header-line)
         .map(*.trim)
         .grep(*.chars);
     return [] unless @headers.elems;
 
     my @rows;
     for @all[$data-start .. $eoe - 1].grep(*.trim.chars) -> $line {
-        my @cols = _split-csv-line($line);
+        my @cols = split-csv-line($line);
         next unless @cols.elems;
 
         my %row;
@@ -423,7 +423,7 @@ sub _extract-table(Str:D $text --> Str:D) {
     $text.substr($start + '$$SOE'.chars, $end - ($start + '$$SOE'.chars)).trim;
 }
 
-sub _split-csv-line(Str:D $line --> Array:D) {
+sub split-csv-line(Str:D $line --> Array:D) {
     my @out;
     my $current = '';
     my $in-quote = False;
