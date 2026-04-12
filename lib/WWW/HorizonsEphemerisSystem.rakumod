@@ -69,10 +69,49 @@ my constant %PROPERTIES =
     'orbital-elements' => <periapsis-date eccentricity periapsis-distance inclination ascending-node-longitude perifocus-argument mean-motion mean-anomaly true-anomaly semi-major-axis apoapsis-distance orbital-period all>,
     'observer' => <azimuth elevation all>;
 
+our %orbitalPropertiesInfo =
+'Date' => [['JDTDB'], 'TDB', 'DateObject'],
+'PeriapsisDate' => [['Tp'], 'TDB', 'DateObject'],
+'Eccentricity' => [['EC'], Nil, 'Numeric'],
+'PeriapsisDistance' => [['QR'], 'Kilometers', 'Quantity'],
+'Inclination' => [['IN'], 'AngularDegrees', 'Quantity'],
+'AscendingNodeLongitude' => [['OM'], 'AngularDegrees', 'Quantity'],
+'PerifocusArgument' => [['W'], 'AngularDegrees', 'Quantity'],
+'MeanMotion' => [['N'], 'AngularDegrees' / 'Seconds', 'Quantity'],
+'MeanAnomaly' => [['MA'], 'AngularDegrees', 'Quantity'],
+'TrueAnomaly' => [['Tru_Anom' | 'TA'], 'AngularDegrees', 'Quantity'],
+'SemiMajorAxis' => [['A'], 'Kilometers', 'Quantity'],
+'ApoapsisDistance' => [['AD'], 'Kilometers', 'Quantity'],
+'OrbitalPeriod' => [['PR'], 'Seconds', 'Quantity']
+;
+
+our %orbitalPropertiesMapping =
+'JDTDB' => 'Date',
+'Tp' => 'PeriapsisDate',
+'EC' => 'Eccentricity',
+'QR' => 'PeriapsisDistance',
+'IN' => 'Inclination',
+'OM' => 'AscendingNodeLongitude',
+'W' => 'PerifocusArgument',
+'N' => 'MeanMotion',
+'MA' => 'MeanAnomaly',
+'Tru_Anom' => 'TrueAnomaly',
+'TA' => 'TrueAnomaly',
+'A' => 'SemiMajorAxis',
+'AD' => 'ApoapsisDistance',
+'PR' => 'OrbitalPeriod'
+;
+
+#==========================================================
+# Client access
+#==========================================================
 our sub horizons-client(|c --> WWW::HorizonsEphemerisSystem::Client:D) is export {
     WWW::HorizonsEphemerisSystem::Client.new(|c)
 }
 
+#==========================================================
+# Main function
+#==========================================================
 our sub horizons-ephemeris-data(
     Str:D $etype,
     $query,
@@ -121,6 +160,7 @@ our sub horizons-ephemeris-data(
 
     my $result = $response.result;
     my @rows = parse-result-csv($result);
+    @rows = @rows.map({ map-orbital-record($_) }).Array if $etype-n eq 'orbital-elements';
 
     return $result unless @rows.elems;
 
@@ -128,6 +168,7 @@ our sub horizons-ephemeris-data(
         my %assoc;
         for @rows -> %row {
             my $k = %row.keys[0] // 'row';
+            $k = 'Date' if %row{'Date'}:exists;
             $k = 'Date_________JDTT' if %row{'Date_________JDTT'}:exists;
             $k = 'JDTDB' if %row{'JDTDB'}:exists;
             %assoc{%row{$k}.Str} = %row;
@@ -138,6 +179,9 @@ our sub horizons-ephemeris-data(
     @rows;
 }
 
+#==========================================================
+# Helpers
+#==========================================================
 sub norm($x --> Str:D) {
     $x.Str.trim.lc.subst('_', '-', :g).subst(' ', '-', :g)
 }
@@ -445,4 +489,16 @@ sub split-csv-line(Str:D $line --> Array:D) {
 
     @out.push: $current;
     @out;
+}
+
+sub map-orbital-record($row where * ~~ Associative --> Hash:D) {
+    my %mapped;
+
+    for $row.kv -> $k, $v {
+        my $mk = %orbitalPropertiesMapping{$k} // $k;
+        next if %mapped{$mk}:exists && %mapped{$mk}.Str.chars;
+        %mapped{$mk} = $v;
+    }
+
+    %mapped;
 }

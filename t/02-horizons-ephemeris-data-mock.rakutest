@@ -127,9 +127,10 @@ my %assoc = horizons-ephemeris-data(
     :client($mock),
 );
 
-say (:%assoc);
-
 is %assoc.elems, 2, 'orbital-elements association has two keyed rows';
+ok %assoc{'2451544.5'}<Date>:exists, 'orbital mapping applies Date key';
+ok %assoc{'2451544.5'}<Eccentricity>:exists, 'orbital mapping applies Eccentricity key';
+ok %assoc{'2451544.5'}<Inclination>:exists, 'orbital mapping applies Inclination key';
 my %call4 = $mock.calls[*-1];
 is %call4<method>, 'elements', 'orbital-elements uses elements-ephemeris';
 ok %call4<params><TLIST>.contains('Mon 10 Jan 2000 00:00:00'), 'datetime list maps to TLIST';
