@@ -1,0 +1,26 @@
+{
+    "name": "WWW::HorizonsEphemerisSystem",
+    "description": "Raku package for accessing Jet Propulsion Laboratory Horizons Ephemeris System by its API.",
+    "version": "0.0.1",
+    "raku": "6.*",
+    "auth": "zef:antononcube",
+    "depends": [
+        "HTTP::Tiny",
+        "JSON::Fast"
+    ],
+    "provides": {
+        "WWW::HorizonsEphemerisSystem": "lib/WWW/HorizonsEphemerisSystem.rakumod"
+    },
+    "license": "MIT",
+    "tags": [
+        "api",
+        "ephemeris",
+        "ephemeris data",
+        "horizons ephemeris system",
+        "horizons system",
+        "horizons",
+        "jet propulsion laboratory",
+        "jpl"
+    ],
+    "source-url": "https://github.com/antononcube/Raku-WWW-HorizonsEphemerisSystem"
+}

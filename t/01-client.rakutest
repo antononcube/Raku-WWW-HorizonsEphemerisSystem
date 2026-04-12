@@ -1,0 +1,101 @@
+use v6.d;
+
+use Test;
+use WWW::HorizonsEphemerisSystem;
+
+class MockHTTPClient {
+    has Str $.last-url is rw;
+    has Hash $.reply is rw;
+
+    method get(Str:D $url --> Hash:D) {
+        $!last-url = $url;
+        $!reply
+    }
+}
+
+my $mock = MockHTTPClient.new(
+    reply => {
+        success => True,
+        status  => 200,
+        reason  => 'OK',
+        headers => {},
+        content => q:to/JSON/.encode('utf8')
+        {
+          "signature": {"version": "1.3", "source": "NASA/JPL Horizons API"},
+          "result": "ok"
+        }
+        JSON
+    }
+);
+
+my $client = WWW::HorizonsEphemerisSystem.new(http-client => $mock);
+
+is $client.percent-encode("'DES=141P;CAP;NOFRAG'"),
+   '%27DES%3D141P%3BCAP%3BNOFRAG%27',
+   'reserved characters are percent-encoded';
+
+my $url = $client.build-url(
+    format      => 'json',
+    COMMAND     => "'499'",
+    START_TIME  => "'2006-01-01'",
+    STOP_TIME   => "'2006-01-20'",
+    STEP_SIZE   => "'1 d'",
+);
+
+ok $url.starts-with('https://ssd.jpl.nasa.gov/api/horizons.api?'), 'build-url uses Horizons endpoint';
+ok $url.contains('COMMAND=%27499%27'), 'COMMAND is encoded';
+ok $url.contains('STEP_SIZE=%271%20d%27'), 'STEP_SIZE with space is encoded';
+
+my $response = $client.observer-ephemeris(
+    COMMAND    => "'499'",
+    OBJ_DATA   => 'YES',
+    MAKE_EPHEM => 'YES',
+);
+
+ok $response.success, 'response is successful';
+is $response.status, 200, 'status is available';
+ok $response.is-json, 'response format detected as json';
+is $response.api-version, '1.3', 'signature version is extracted';
+is $response.result, 'ok', 'JSON result payload extracted';
+ok $mock.last-url.contains('EPHEM_TYPE=OBSERVER'), 'observer-ephemeris sets EPHEM_TYPE';
+
+$mock.reply = {
+    success => True,
+    status  => 200,
+    reason  => 'OK',
+    headers => {},
+    content => q:to/JSONERR/.encode('utf8')
+    {
+      "signature": {"version": "1.3", "source": "NASA/JPL Horizons API"},
+      "error": "Object not found"
+    }
+    JSONERR
+};
+
+throws-like {
+    $client.query(COMMAND => "'BAD'", format => 'json');
+}, X::WWW::HorizonsEphemerisSystem::API, 'throws for API-level JSON error';
+
+$mock.reply = {
+    success => False,
+    status  => 503,
+    reason  => 'Service Unavailable',
+    headers => {},
+    content => ''.encode('utf8')
+};
+
+throws-like {
+    $client.query(COMMAND => "'499'", format => 'json');
+}, X::WWW::HorizonsEphemerisSystem::HTTP, 'throws for HTTP error response';
+
+my $table = $client.extract-table(q:to/TABLE/);
+prefix
+$$SOE
+line1
+line2
+$$EOE
+suffix
+TABLE
+is $table, "line1\nline2", 'extract-table returns lines between $$SOE and $$EOE';
+
+done-testing;
