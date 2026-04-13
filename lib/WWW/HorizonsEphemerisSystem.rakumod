@@ -550,9 +550,10 @@ sub split-csv-line(Str:D $line --> Array:D) {
 sub map-orbital-record($row where * ~~ Associative --> Hash:D) {
     my %mapped;
 
-    for $row.kv -> $k, $v {
+    for $row.kv -> $k, $v is copy {
         my $mk = %orbitalPropertiesMapping{$k} // $k;
         next if %mapped{$mk}:exists && %mapped{$mk}.Str.chars;
+        if %orbitalPropertiesInfo{$mk}.tail ∈ <Numeric Quantity> { $v .= Numeric }
         %mapped{$mk} = $v;
     }
 
@@ -562,9 +563,10 @@ sub map-orbital-record($row where * ~~ Associative --> Hash:D) {
 sub map-state-record($row where * ~~ Associative --> Hash:D) {
     my %mapped;
 
-    for $row.kv -> $k, $v {
+    for $row.kv -> $k, $v is copy {
         my $mk = %statePropertiesMapping{$k} // $k;
         next if %mapped{$mk}:exists && %mapped{$mk}.Str.chars;
+        if %statePropertiesInfo{$mk}.tail ∈ <Numeric Quantity> { $v .= Numeric }
         %mapped{$mk} = $v;
     }
 
