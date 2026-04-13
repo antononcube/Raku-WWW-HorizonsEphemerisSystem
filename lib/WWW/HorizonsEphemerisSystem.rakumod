@@ -1,4 +1,4 @@
-use v6.d;
+  use v6.d;
 
 unit module WWW::HorizonsEphemerisSystem;
 
@@ -69,6 +69,9 @@ my constant %PROPERTIES =
     'orbital-elements' => <periapsis-date eccentricity periapsis-distance inclination ascending-node-longitude perifocus-argument mean-motion mean-anomaly true-anomaly semi-major-axis apoapsis-distance orbital-period all>,
     'observer' => <azimuth elevation all>;
 
+#----------------------------------------------------------
+# Orbital properties
+#----------------------------------------------------------
 our %orbitalPropertiesInfo =
 'Date' => [['JDTDB'], 'TDB', 'DateObject'],
 'PeriapsisDate' => [['Tp'], 'TDB', 'DateObject'],
@@ -101,6 +104,58 @@ our %orbitalPropertiesMapping =
 'AD' => 'ApoapsisDistance',
 'PR' => 'OrbitalPeriod'
 ;
+
+#----------------------------------------------------------
+# State properties
+#----------------------------------------------------------
+my %statePropertiesInfo =
+"Date" => [ ["JDTDB"], "TDB", "DateObject" ],
+"Distance" => [ ["RG"], "Kilometers", "Quantity" ],
+"RadialVelocity" => [ ["RR"], "Kilometers/Seconds", "Quantity" ],
+"LightTime" => [ ["LT"], "Seconds", "Quantity" ],
+"X" => [ ["X"], "Kilometers", "Quantity" ],
+"Y" => [ ["Y"], "Kilometers", "Quantity" ],
+"Z" => [ ["Z"], "Kilometers", "Quantity" ],
+"Vx" => [ ["VX"], "Kilometers/Seconds", "Quantity" ],
+"Vy" => [ ["VY"], "Kilometers/Seconds", "Quantity" ],
+"Vz" => [ ["VZ"], "Kilometers/Seconds", "Quantity" ],
+"XUncertainty" => [ ["X_s"], "Kilometers", "Quantity" ],
+"YUncertainty" => [ ["Y_s"], "Kilometers", "Quantity" ],
+"ZUncertainty" => [ ["Z_s"], "Kilometers", "Quantity" ],
+"VxUncertainty" => [ ["VX_s"], "Kilometers/Seconds", "Quantity" ],
+"VyUncertainty" => [ ["VY_s"], "Kilometers/Seconds", "Quantity" ],
+"VzUncertainty" => [ ["VZ_s"], "Kilometers/Seconds", "Quantity" ],
+"AlongUncertainty" => [ ["A_s"], "Kilometers", "Quantity" ],
+"CrossUncertainty" => [ ["C_s"], "Kilometers", "Quantity" ],
+"NormalUncertainty" => [ ["N_s"], "Kilometers", "Quantity" ],
+"AlongVelocityUncertainty" => [ ["VA_s"], "Kilometers/Seconds", "Quantity" ],
+"CrossVelocityUncertainty" => [ ["VC_s"], "Kilometers/Seconds", "Quantity" ],
+"NormalVelocityUncertainty" => [ ["VN_s"], "Kilometers/Seconds", "Quantity" ],
+"RadialUncertainty" => [ ["R_s"], "Kilometers", "Quantity" ],
+"TransverseUncertainty" => [ ["T_s"], "Kilometers", "Quantity" ],
+"RadialVelocityUncertainty" => [ ["VR_s", "RNGRT_3sig"], "Kilometers/Seconds", "Quantity" ],
+"TransverseVelocityUncertainty" => [ ["VT_s"], "Kilometers/Seconds", "Quantity" ],
+"XWithUncertainty" => [ ["X", "X_s"], "Kilometers", "Around" ],
+"YWithUncertainty" => [ ["Y", "Y_s"], "Kilometers", "Around" ],
+"ZWithUncertainty" => [ ["Z", "Z_s"], "Kilometers", "Around" ],
+"VxWithUncertainty" => [ ["VX", "VX_s"], "Kilometers/Seconds", "Around" ],
+"VyWithUncertainty" => [ ["VY", "VY_s"], "Kilometers/Seconds", "Around" ],
+"VzWithUncertainty" => [ ["VZ", "VZ_s"], "Kilometers/Seconds", "Around" ],
+;
+
+our %statePropertiesMapping;
+for %statePropertiesInfo.kv -> $key, $value {
+    for $value.head.list -> $source-column {
+        # Handle duplicate source columns
+        if %statePropertiesMapping{$source-column}:exists {
+            if $key.chars < %statePropertiesMapping{$source-column}.chars {
+                %statePropertiesMapping{$source-column} = $key;
+            }
+        } else {
+            %statePropertiesMapping{$source-column} = $key
+        }
+    }
+}
 
 #==========================================================
 # Client access
@@ -160,6 +215,7 @@ our sub horizons-ephemeris-data(
 
     my $result = $response.result;
     my @rows = parse-result-csv($result);
+    @rows = @rows.map({ map-state-record($_) }).Array if $etype-n eq 'state';
     @rows = @rows.map({ map-orbital-record($_) }).Array if $etype-n eq 'orbital-elements';
 
     return $result unless @rows.elems;
@@ -335,7 +391,7 @@ sub dates-params($dates --> Hash:D) {
     if $dates ~~ Positional {
         my @d = $dates.list;
 
-        if @d.elems == 3 && @d[0] ~~ Str && @d[1] ~~ Str && @d[2] ~~ Str && looks-like-step(@d[2]) {
+        if @d.elems == 3 && @d[0] ~~ Str:D && @d[1] ~~ Str:D && @d[2] ~~ Str:D && looks-like-step(@d[2]) {
             return {
                 START_TIME => "'" ~ @d[0] ~ "'",
                 STOP_TIME  => "'" ~ @d[1] ~ "'",
@@ -496,6 +552,18 @@ sub map-orbital-record($row where * ~~ Associative --> Hash:D) {
 
     for $row.kv -> $k, $v {
         my $mk = %orbitalPropertiesMapping{$k} // $k;
+        next if %mapped{$mk}:exists && %mapped{$mk}.Str.chars;
+        %mapped{$mk} = $v;
+    }
+
+    %mapped;
+}
+
+sub map-state-record($row where * ~~ Associative --> Hash:D) {
+    my %mapped;
+
+    for $row.kv -> $k, $v {
+        my $mk = %statePropertiesMapping{$k} // $k;
         next if %mapped{$mk}:exists && %mapped{$mk}.Str.chars;
         %mapped{$mk} = $v;
     }

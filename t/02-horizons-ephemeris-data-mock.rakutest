@@ -72,6 +72,7 @@ ok horizons-ephemeris-data('observer', 'properties').grep(* eq 'azimuth').so,
 my @state-default = horizons-ephemeris-data('state', '499', 'position', :client($mock));
 is @state-default.elems, 1, 'state default returns one parsed row';
 is @state-default[0]<X>, '1.0', 'state result has parsed X column';
+ok @state-default[0]<Date>:exists, 'state mapping applies Date key';
 
 my %call1 = $mock.calls[*-1];
 is %call1<method>, 'vectors', 'state uses vectors ephemeris call';
@@ -87,6 +88,7 @@ my @state-date = horizons-ephemeris-data(
 );
 
 is @state-date.elems, 1, 'state with specific date returns parsed data';
+ok @state-date[0]<Date>:exists, 'state mapping applies Date key with specific date';
 my %call2 = $mock.calls[*-1];
 ok (%call2<params><TLIST> // '').contains('now + 12 h'), 'single date maps to TLIST';
 
