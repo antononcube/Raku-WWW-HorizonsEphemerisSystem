@@ -117,6 +117,9 @@ say $response.result;
 ## Implementation details
 
 - The first version -- 0.0.1 -- was made using ChatGPT Codex with "gpt-5.3-codex" over the API spec [horizons.html](https://ssd-api.jpl.nasa.gov/doc/horizons.html).
+  
+  - See ["prompts.md"](./docs/prompts.md) for the development evolution by LLM prompts.
+    - Some other interactive convincing was needed besides those prompts.
 
 - The client object is fairly non-useful computations-wise -- it "only retrieves."
 
