@@ -3,6 +3,7 @@
 unit module WWW::HorizonsEphemerisSystem;
 
 use WWW::HorizonsEphemerisSystem::Client;
+use Hash::Merge;
 
 my constant @ETYPES = <state orbital-elements observer>;
 my constant @MODIFIERS = <data dataset association>;
@@ -57,7 +58,7 @@ my constant %STATE-GROUP-RANK =
 my constant %OBSERVER-PROP-CODE =
     azimuth         => 4,
     elevation       => 4,
-    'all'           => 'A';
+    all             => 'A';
 
 my constant %QUERY-PARAMETERS =
     'state' => <target center dates frame corrections>,
@@ -156,6 +157,214 @@ for %statePropertiesInfo.kv -> $key, $value {
         }
     }
 }
+
+#----------------------------------------------------------
+# Observer properties
+#----------------------------------------------------------
+
+my %observerPropertiesInfo =
+"ObservationDate" => [["Date_________JDTT"], "TT", "DateObject"],
+"NearestPoint" => [["ObsSub-LAT", "ObsSub-LON"], "AngularDegrees", "GeoPosition"],
+"SubsolarPoint" => [["SunSub-LAT", "SunSub-LON"], "AngularDegrees", "GeoPosition"],
+"Visibility" => [["vis."], "VisibilityCodes", "String"],
+"ApparentSunObserverTargetConfiguration" => [["/r"], "ElongationCodes", "String"],
+"Constellation" => [["Cnst"], "Constellation", "String"],
+"SolarPresence" => [[""], "SolarPresence", "String"],
+"InterferingBodyPresence" => [[""], "LunarPresence", "String"],
+"RelativeAirmass" => [["a-mass"], Any, "Numeric"],
+"MagnitudeExtinction" => [["mag_ex"], Any, "Numeric"],
+"ApparentMagnitude" => [["APmag"], Any, "Numeric"],
+"SignalToNoiseRatio" => [["sky_SNR"], Any, "Numeric"],
+"AstrometricRightAscension" => [["R.A._(ICRF)", "R.A.___(ICRF)"], "AngularDegrees", "Quantity"],
+"AstrometricDeclination" => [["DEC_(ICRF)", "DEC____(ICRF)"], "AngularDegrees", "Quantity"],
+"ApparentRightAscension" => [["R.A._(r-app)", "R.A._(a-app)", "R.A.__(a-app)", "R.A._(rfct-app)"], "AngularDegrees", "Quantity"],
+"ApparentDeclination" => [["DEC_(r-app)", "DEC_(a-app)", "DEC___(a-app)", "DEC_(rfct-app)"], "AngularDegrees", "Quantity"],
+"ApparentRightAscensionVelocity" => [["dRA*cosD"], "Arcseconds"/"Hours", "Quantity"],
+"ApparentDeclinationVelocity" => [["d(DEC)/dt"], "Arcseconds"/"Hours", "Quantity"],
+"Azimuth" => [["Azi_(a-app)", "Azi_(r-app)", "Azimuth_(r-app)", "Azimuth_(a-app)"], "AngularDegrees", "Quantity"],
+"Elevation" => [["Elev_(a-app)", "Elev_(r-app)", "Elevation_(r-app)", "Elevation_(a-app)"], "AngularDegrees", "Quantity"],
+"AzimuthVelocity" => [["dAZ*cosE"], "Arcseconds"/"Minutes", "Quantity"],
+"ElevationVelocity" => [["d(ELV)/dt"], "Arcseconds"/"Minutes", "Quantity"],
+"SatelliteXOffset" => [["X_(sat-prim)"], "Arcseconds", "Quantity"],
+"SatelliteYOffset" => [["Y_(sat-prim)"], "Arcseconds", "Quantity"],
+"SatellitePositionAngle" => [["SatPANG"], "AngularDegrees", "Quantity"],
+"LocalSiderealTime" => [["L_Ap_Sid_Time"], "HoursOfRightAscension", "Quantity"],
+"SurfaceBrightness" => [["S-brt"], ("Arcseconds")**-2, "Quantity"],
+"IlluminatedFraction" => [["Illu%"], "Percent", "Quantity"],
+"ObscureAngularWidth" => [["Def_illu"], "Arcseconds", "Quantity"],
+"TargetToPrimaryBodyAngle" => [["ang-sep"], "Arcseconds", "Quantity"],
+"AngularDiameter" => [["Ang-diam"], "Arcseconds", "Quantity"],
+"NearestPointLongitude" => [["ObsSub-LON"], "AngularDegrees", "Quantity"],
+"NearestPointLatitude" => [["ObsSub-LAT"], "AngularDegrees", "Quantity"],
+"SubsolarPointLongitude" => [["SunSub-LON"], "AngularDegrees", "Quantity"],
+"SubsolarPointLatitude" => [["SunSub-LAT"], "AngularDegrees", "Quantity"],
+"NorthPoleToSubSolarPointAngle" => [["SN.ang"], "AngularDegrees", "Quantity"],
+"NearestPointToSubSolarPointAngle" => [["SN.dist"], "Arcseconds", "Quantity"],
+"NorthPoleToApparentNorthPoleAngle" => [["NP.ang"], "AngularDegrees", "Quantity"],
+"NearestPointToApparentNorthPoleAngle" => [["NP.dist"], "Arcseconds", "Quantity"],
+"HeliocentricEclipticLongitude" => [["hEcl-Lon"], "AngularDegrees", "Quantity"],
+"HeliocentricEclipticLatitude" => [["hEcl-Lat"], "AngularDegrees", "Quantity"],
+"ApparentDistanceToSun" => [["r"], "Kilometers", "Quantity"],
+"ApparentSpeedRelativeToSun" => [["rdot"], "Kilometers"/"Seconds", "Quantity"],
+"ApparentDistanceToObserver" => [["delta"], "Kilometers", "Quantity"],
+"ApparentSpeedRelativeToObserver" => [["deldot"], "Kilometers"/"Seconds", "Quantity"],
+"TargetToObserverLightTime" => [["1-way_down_LT"], "Minutes", "Quantity"],
+"SpeedMagnitudeRelativeToSun" => [["VmagSn"], "Kilometers"/"Seconds", "Quantity"],
+"SpeedMagnitudeRelativeToObserver" => [["VmagOb"], "Kilometers"/"Seconds", "Quantity"],
+"ApparentSunObserverTargetAngle" => [["S-O-T"], "AngularDegrees", "Quantity"],
+"ApparentSunTargetObserverAngle" => [["S-T-O"], "AngularDegrees", "Quantity"],
+"ApparentInterferingBodyElongationAngle" => [["T-O-M", "T-O-I"], "AngularDegrees", "Quantity"],
+"InterferingBodyIlluminatedFraction" => [["MN_Illu%", "IB_Illu%"], "Percent", "Quantity"],
+"ApparentObserverPrimaryCenterTargetAngle" => [["O-P-T"], "AngularDegrees", "Quantity"],
+"HeliocentricNorthPoleToRadiusVectorAngle" => [["PsAng"], "AngularDegrees", "Quantity"],
+"HeliocentricNorthPoleToNegativeVelocityAngle" => [["PsAMV"], "AngularDegrees", "Quantity"],
+"TargetOrbitalPlaneToObserverAngle" => [["PlAng"], "AngularDegrees", "Quantity"],
+"ApparentEclipticLongitude" => [["r-ObsEcLon", "ObsEcLon"], "AngularDegrees", "Quantity"],
+"ApparentEclipticLatitude" => [["r-ObsEcLat", "ObsEcLat"], "AngularDegrees", "Quantity"],
+"NorthPoleRightAscension" => [["N.Pole-RA"], "AngularDegrees", "Quantity"],
+"NorthPoleDeclination" => [["N.Pole-DC"], "AngularDegrees", "Quantity"],
+"ApparentGalacticLongitude" => [["GlxLon"], "AngularDegrees", "Quantity"],
+"ApparentGalacticLatitude" => [["GlxLat"], "AngularDegrees", "Quantity"],
+"ObserverApparentSolarTime" => [["L_Ap_SOL_Time"], "HoursOfRightAscension", "Quantity"],
+"ObserverToEarthLightTime" => [["399_ins_LT"], "Minutes", "Quantity"],
+"RightAscensionUncertainty" => [["RA_3sigma"], "Arcseconds", "Quantity"],
+"DeclinationUncertainty" => [["DEC_3sigma"], "Arcseconds", "Quantity"],
+"UncertaintySemiMajorAxis" => [["SMAA_3sig"], "Arcseconds", "Quantity"],
+"UncertaintySemiMinorAxis" => [["SMIA_3sig"], "Arcseconds", "Quantity"],
+"UncertaintyEllipseOrientationAngle" => [["Theta"], "AngularDegrees", "Quantity"],
+"UncertaintyArea" => [["Area_3sig"], ("Arcseconds")**2, "Quantity"],
+"DistanceUncertainty" => [["RNG_3sigma"], "Kilometers", "Quantity"],
+"RadialVelocityUncertainty" => [["VR_s", "RNGRT_3sig"], "Kilometers"/"Seconds", "Quantity"],
+"SDopplerUncertainty" => [["DOP_S_3sig"], "Hertz", "Quantity"],
+"XDopplerUncertainty" => [["DOP_X_3sig"], "Hertz", "Quantity"],
+"RoundTripDelay" => [["RT_delay_3sig"], "Seconds", "Quantity"],
+"ApparentTrueAnomaly" => [["Tru_Anom", "TA"], "AngularDegrees", "Quantity"],
+"LocalHourAngle" => [["r-L_Ap_Hour_Ang", "L_Ap_Hour_Ang"], "HoursOfRightAscension", "Quantity"],
+"PhaseAngle" => [["phi"], "AngularDegrees", "Quantity"],
+"PhaseAngleBisectorLongitude" => [["PAB-LON"], "AngularDegrees", "Quantity"],
+"PhaseAngleBisectorLatitude" => [["PAB-LAT"], "AngularDegrees", "Quantity"],
+"TargetCenteredApparentSunLongitude" => [["App_Lon_Sun"], "AngularDegrees", "Quantity"],
+"InertialApparentRightAscension" => [["RA_(ICRF-r-app)", "RA_(ICRF-a-app)"], "AngularDegrees", "Quantity"],
+"InertialApparentDeclination" => [["DEC_(ICRF-r-app)", "DEC_(ICRF-a-app)"], "AngularDegrees", "Quantity"],
+"InertialApparentRightAscensionVelocity" => [["I_dRA*cosD"], "Arcseconds"/"Hours", "Quantity"],
+"InertialApparentDeclinationVelocity" => [["I_d(DEC)/dt"], "Arcseconds"/"Hours", "Quantity"],
+"ApparentAngularVelocity" => [["Sky_motion"], "Arcseconds"/"Minutes", "Quantity"],
+"NorthPoleToMotionDirectionAngle" => [["Sky_mot_PA"], "AngularDegrees", "Quantity"],
+"PathAngle" => [["RelVel-ANG"], "AngularDegrees", "Quantity"],
+"SkyBrightness" => [["Lun_Sky_Brt"], "Arcseconds", "Quantity"],
+;
+
+our %observerPropertiesMapping;
+for %observerPropertiesInfo.kv -> $key, $value {
+    for $value.head.list -> $source-column {
+        # Handle duplicate source columns
+        if %observerPropertiesMapping{$source-column}:exists {
+            if $key.chars < %observerPropertiesMapping{$source-column}.chars {
+                %observerPropertiesMapping{$source-column} = $key;
+            }
+        } else {
+            %observerPropertiesMapping{$source-column} = $key
+        }
+    }
+}
+
+#----------------------------------------------------------
+# Observer properties to Horizons codes
+#----------------------------------------------------------
+
+our %observerPropToHorizons =
+"SolarPresence" => 1,
+"InterferingBodyPresence" => 1,
+"NearestPoint" => 14,
+"SubsolarPoint" => 15,
+"Visibility" => 12,
+"ApparentSunObserverTargetConfiguration" => 23,
+"Constellation" => 29,
+"RelativeAirmass" => 8,
+"MagnitudeExtinction" => 8,
+"ApparentMagnitude" => 9,
+"SignalToNoiseRatio" => 48,
+"AstrometricRightAscension" => 1,
+"AstrometricDeclination" => 1,
+"ApparentRightAscension" => 2,
+"ApparentDeclination" => 2,
+"ApparentRightAscensionVelocity" => 3,
+"ApparentDeclinationVelocity" => 3,
+"Azimuth" => 4,
+"Elevation" => 4,
+"AzimuthVelocity" => 5,
+"ElevationVelocity" => 5,
+"SatelliteXOffset" => 6,
+"SatelliteYOffset" => 6,
+"SatellitePositionAngle" => 6,
+"LocalSiderealTime" => 7,
+"SurfaceBrightness" => 9,
+"IlluminatedFraction" => 10,
+"ObscureAngularWidth" => 11,
+"TargetToPrimaryBodyAngle" => 12,
+"AngularDiameter" => 13,
+"NearestPointLongitude" => 14,
+"NearestPointLatitude" => 14,
+"SubsolarPointLongitude" => 15,
+"SubsolarPointLatitude" => 15,
+"NorthPoleToSubSolarPointAngle" => 16,
+"NearestPointToSubSolarPointAngle" => 16,
+"NorthPoleToApparentNorthPoleAngle" => 17,
+"NearestPointToApparentNorthPoleAngle" => 17,
+"HeliocentricEclipticLongitude" => 18,
+"HeliocentricEclipticLatitude" => 18,
+"ApparentDistanceToSun" => 19,
+"ApparentSpeedRelativeToSun" => 19,
+"ApparentDistanceToObserver" => 20,
+"ApparentSpeedRelativeToObserver" => 20,
+"TargetToObserverLightTime" => 21,
+"SpeedMagnitudeRelativeToSun" => 22,
+"SpeedMagnitudeRelativeToObserver" => 22,
+"ApparentSunObserverTargetAngle" => 23,
+"ApparentSunTargetObserverAngle" => 24,
+"ApparentInterferingBodyElongationAngle" => 25,
+"InterferingBodyIlluminatedFraction" => 25,
+"ApparentObserverPrimaryCenterTargetAngle" => 26,
+"HeliocentricNorthPoleToRadiusVectorAngle" => 27,
+"HeliocentricNorthPoleToNegativeVelocityAngle" => 27,
+"TargetOrbitalPlaneToObserverAngle" => 28,
+"ApparentEclipticLongitude" => 31,
+"ApparentEclipticLatitude" => 31,
+"NorthPoleRightAscension" => 32,
+"NorthPoleDeclination" => 32,
+"ApparentGalacticLongitude" => 33,
+"ApparentGalacticLatitude" => 33,
+"ObserverApparentSolarTime" => 34,
+"ObserverToEarthLightTime" => 35,
+"RightAscensionUncertainty" => 36,
+"DeclinationUncertainty" => 36,
+"UncertaintySemiMajorAxis" => 37,
+"UncertaintySemiMinorAxis" => 37,
+"UncertaintyEllipseOrientationAngle" => 37,
+"UncertaintyArea" => 37,
+"DistanceUncertainty" => 39,
+"RadialVelocityUncertainty" => 39,
+"SDopplerUncertainty" => 40,
+"XDopplerUncertainty" => 40,
+"RoundTripDelay" => 40,
+"ApparentTrueAnomaly" => 41,
+"LocalHourAngle" => 42,
+"PhaseAngle" => 43,
+"PhaseAngleBisectorLongitude" => 43,
+"PhaseAngleBisectorLatitude" => 43,
+"TargetCenteredApparentSunLongitude" => 44,
+"InertialApparentRightAscension" => 45,
+"InertialApparentDeclination" => 45,
+"InertialApparentRightAscensionVelocity" => 46,
+"InertialApparentDeclinationVelocity" => 46,
+"ApparentAngularVelocity" => 47,
+"NorthPoleToMotionDirectionAngle" => 47,
+"PathAngle" => 47,
+"SkyBrightness" => 48,
+;
+
+%observerPropToHorizons = merge-hash(%observerPropToHorizons, %observerPropToHorizons.map({ $_.key.lc => $_.value }).Hash );
+%observerPropToHorizons = merge-hash(%observerPropToHorizons, %observerPropertiesMapping.map({ $_.value => %observerPropToHorizons{$_.key} }).Hash);
 
 #==========================================================
 # Client access
@@ -456,12 +665,14 @@ sub state-columns-group($properties --> Str:D) {
 }
 
 sub observer-quantities($properties --> Str:D) {
-    my @props = $properties ~~ Positional ?? $properties.list !! [$properties];
+    return 'A' if $properties.isa(Whatever);
+
+    my @props = $properties ~~ Positional:D ?? $properties.List !! [$properties, ];
     @props = @props.map({ norm($_) });
 
     return 'A' if @props.grep(* eq 'all').so;
 
-    my @codes = @props.map({ %OBSERVER-PROP-CODE{$_} // die "Unsupported observer property '$_'" }).unique.sort;
+    my @codes = @props.map({ %observerPropToHorizons{$_} // die "Unsupported observer property '$_'" }).unique.sort;
     @codes.join(',');
 }
 
