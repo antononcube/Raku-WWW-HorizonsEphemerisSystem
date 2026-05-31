@@ -1,12 +1,13 @@
 {
     "name": "WWW::HorizonsEphemerisSystem",
     "description": "Raku package for accessing Jet Propulsion Laboratory Horizons Ephemeris System by its API.",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "raku": "6.*",
     "auth": "zef:antononcube",
     "depends": [
         "HTTP::Tiny",
-        "JSON::Fast:ver<0.19+>"
+        "JSON::Fast:ver<0.19+>",
+        "Hash::Merge:ver<2.0.0>:api<2>"
     ],
     "provides": {
         "WWW::HorizonsEphemerisSystem": "lib/WWW/HorizonsEphemerisSystem.rakumod",
