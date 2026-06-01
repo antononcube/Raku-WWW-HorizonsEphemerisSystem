@@ -105,7 +105,7 @@ my @observer = horizons-ephemeris-data(
 );
 
 is @observer.elems, 1, 'observer example returns parsed row';
-is @observer[0]<Azimuth_(a-app)>, '120.5', 'observer azimuth is parsed';
+is @observer[0]<Azimuth>, '120.5', 'observer azimuth is parsed';
 
 my %call3 = $mock.calls[*-1];
 is %call3<method>, 'observer', 'observer etype uses observer-ephemeris';
