@@ -146,7 +146,7 @@ my %statePropertiesInfo =
 
 our %statePropertiesMapping;
 for %statePropertiesInfo.kv -> $key, $value {
-    for $value.head.list -> $source-column {
+    for $value.head.Array -> $source-column {
         # Handle duplicate source columns
         if %statePropertiesMapping{$source-column}:exists {
             if $key.chars < %statePropertiesMapping{$source-column}.chars {
@@ -163,7 +163,9 @@ for %statePropertiesInfo.kv -> $key, $value {
 #----------------------------------------------------------
 
 my %observerPropertiesInfo =
-"ObservationDate" => [["Date_________JDTT"], "TT", "DateObject"],
+"ObservationDateTT" => [["Date_________JDTT"], "TT", "DateObject"],
+"ObservationDateUT" => [["Date_________JDUT"], "UT", "DateObject"],
+"ObservationDateTDB" => [["Date_________JD_TDB"], "TDB", "DateObject"],
 "NearestPoint" => [["ObsSub-LAT", "ObsSub-LON"], "AngularDegrees", "GeoPosition"],
 "SubsolarPoint" => [["SunSub-LAT", "SunSub-LON"], "AngularDegrees", "GeoPosition"],
 "Visibility" => [["vis."], "VisibilityCodes", "String"],
@@ -256,7 +258,7 @@ my %observerPropertiesInfo =
 
 our %observerPropertiesMapping;
 for %observerPropertiesInfo.kv -> $key, $value {
-    for $value.head.list -> $source-column {
+    for $value.head.Array -> $source-column {
         # Handle duplicate source columns
         if %observerPropertiesMapping{$source-column}:exists {
             if $key.chars < %observerPropertiesMapping{$source-column}.chars {
@@ -426,6 +428,7 @@ our sub horizons-ephemeris-data(
     my @rows = parse-result-csv($result);
     @rows = @rows.map({ map-state-record($_) }).Array if $etype-n eq 'state';
     @rows = @rows.map({ map-orbital-record($_) }).Array if $etype-n eq 'orbital-elements';
+    @rows = @rows.map({ map-observer-record($_) }).Array if $etype-n eq 'observer';
 
     return $result unless @rows.elems;
 
@@ -435,6 +438,8 @@ our sub horizons-ephemeris-data(
             my $k = %row.keys[0] // 'row';
             $k = 'Date' if %row{'Date'}:exists;
             $k = 'Date_________JDTT' if %row{'Date_________JDTT'}:exists;
+            $k = 'Date_________JDUT' if %row{'Date_________JDUT'}:exists;
+            $k = 'Date_________JD_TDB' if %row{'Date_________JD_TDB'}:exists;
             $k = 'JDTDB' if %row{'JDTDB'}:exists;
             %assoc{%row{$k}.Str} = %row;
         }
@@ -758,6 +763,44 @@ sub split-csv-line(Str:D $line --> Array:D) {
     @out;
 }
 
+#----------------------------------------------------------
+# Time conversion functions
+#----------------------------------------------------------
+# Julian Date of Unix epoch 1970-01-01T00:00:00Z
+constant JD_UNIX_EPOCH = 2440587.5;
+
+# Convert JD in UTC/UT to DateTime
+sub jdut-to-datetime(Real $jd --> DateTime) {
+    DateTime.new( ($jd - JD_UNIX_EPOCH) * 86400 );
+}
+
+# Convert JD in TT to DateTime representing the TT instant
+# (TT-UTC = ΔAT + 32.184 s)
+sub jdtt-to-datetime(
+        Real $jd,
+        Real :$tt-minus-utc = 69.184
+        --> DateTime
+                     ) {
+    DateTime.new(
+            ($jd - JD_UNIX_EPOCH) * 86400 - $tt-minus-utc
+            );
+}
+
+# Convert JD in TDB to DateTime
+# TDB differs from TT by at most about ±1.7 ms,
+# so for most Horizons work TT≈TDB.
+sub jdtdb-to-datetime(
+        Real $jd,
+        Real :$tt-minus-utc = 69.184
+        --> DateTime
+                      ) {
+    jdtt-to-datetime($jd, :$tt-minus-utc);
+}
+
+#----------------------------------------------------------
+# Process records for different E-types
+#----------------------------------------------------------
+
 sub map-orbital-record($row where * ~~ Associative --> Hash:D) {
     my %mapped;
 
@@ -778,6 +821,24 @@ sub map-state-record($row where * ~~ Associative --> Hash:D) {
         my $mk = %statePropertiesMapping{$k} // $k;
         next if %mapped{$mk}:exists && %mapped{$mk}.Str.chars;
         if %statePropertiesInfo{$mk}.tail ∈ <Numeric Quantity> { $v .= Numeric }
+        %mapped{$mk} = $v;
+    }
+
+    %mapped;
+}
+
+sub map-observer-record($row where * ~~ Associative --> Hash:D) {
+    my %mapped;
+
+    for $row.kv -> $k, $v is copy {
+        my $mk = %observerPropertiesMapping{$k} // $k;
+        next if %mapped{$mk}:exists && %mapped{$mk}.Str.chars;
+        if %observerPropertiesInfo{$mk}.tail ∈ <Numeric Quantity> { $v .= Numeric }
+        if %observerPropertiesInfo{$mk}.tail ∈ <DateObject> {
+            if $mk.ends-with('DateUT') { $v = jdut-to-datetime($v.Numeric) }
+            elsif $mk.ends-with('DateJDTT') { $v = jdtt-to-datetime($v.Numeric) }
+            elsif $mk.ends-with('DateJD_TDB') { $v = jdtdb-to-datetime($v.Numeric) }
+        }
         %mapped{$mk} = $v;
     }
 
