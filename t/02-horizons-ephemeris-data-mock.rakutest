@@ -8,7 +8,7 @@ class MockHorizonsClient {
     has @.calls;
 
     method !response(Str:D $payload) {
-        WWW::HorizonsEphemerisSystem::Client::HorizonsResponse.new(
+        WWW::HorizonsEphemerisSystem::Response.new(
             success => True,
             status  => 200,
             reason  => 'OK',

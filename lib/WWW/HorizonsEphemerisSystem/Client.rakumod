@@ -1,13 +1,11 @@
 use v6.d;
 
-unit module WWW::HorizonsEphemerisSystem::Client;
-
 use HTTP::Tiny;
 use JSON::Fast;
 
-constant $DEFAULT-API-URL     = 'https://ssd.jpl.nasa.gov/api/horizons.api';
-constant $DEFAULT-API-VERSION = '1.3';
-constant $DEFAULT-USER-AGENT  = 'WWW::HorizonsEphemerisSystem/0.1 (Raku; HTTP::Tiny)';
+constant $HORIZONS-DEFAULT-API-URL     = 'https://ssd.jpl.nasa.gov/api/horizons.api';
+constant $HORIZONS-DEFAULT-API-VERSION = '1.3';
+constant $HORIZONS-DEFAULT-USER-AGENT  = 'WWW::HorizonsEphemerisSystem/0.1 (Raku; HTTP::Tiny)';
 
 my constant %EPHEM-TYPES = set <OBSERVER VECTORS ELEMENTS SPK APPROACH>;
 
@@ -38,7 +36,7 @@ class X::WWW::HorizonsEphemerisSystem::API
     }
 }
 
-class HorizonsResponse {
+class WWW::HorizonsEphemerisSystem::Response {
     has Bool $.success;
     has Int $.status;
     has Str $.reason = '';
@@ -83,16 +81,16 @@ class HorizonsResponse {
 }
 
 class WWW::HorizonsEphemerisSystem::Client {
-    has Str $.api-url = $DEFAULT-API-URL;
-    has Str $.expected-api-version = $DEFAULT-API-VERSION;
+    has Str $.api-url = $HORIZONS-DEFAULT-API-URL;
+    has Str $.expected-api-version = $HORIZONS-DEFAULT-API-VERSION;
     has Bool $.strict-version-check = False;
     has $!http-client;
 
     submethod BUILD(
-        Str :$!api-url = $DEFAULT-API-URL,
-        Str :$!expected-api-version = $DEFAULT-API-VERSION,
+        Str :$!api-url = $HORIZONS-DEFAULT-API-URL,
+        Str :$!expected-api-version = $HORIZONS-DEFAULT-API-VERSION,
         Bool :$!strict-version-check = False,
-        Str :$user-agent = $DEFAULT-USER-AGENT,
+        Str :$user-agent = $HORIZONS-DEFAULT-USER-AGENT,
         :$http-client
     ) {
         $!http-client = $http-client // HTTP::Tiny.new(:agent($user-agent));
@@ -141,7 +139,7 @@ class WWW::HorizonsEphemerisSystem::Client {
         $query.chars ?? "$!api-url?$query" !! $!api-url;
     }
 
-    method query(*%params, Str :$format = 'json', Bool :$throw = True --> HorizonsResponse:D) {
+    method query(*%params, Str :$format = 'json', Bool :$throw = True --> WWW::HorizonsEphemerisSystem::Response:D) {
         my %call-params = %params;
         %call-params<throw>:delete;
         %call-params<format> //= $format;
@@ -168,7 +166,7 @@ class WWW::HorizonsEphemerisSystem::Client {
             }
         }
 
-        my $response = HorizonsResponse.new(
+        my $response = WWW::HorizonsEphemerisSystem::Response.new(
             success     => so (%http<success> // False),
             status      => (%http<status> // 0).Int,
             reason      => (%http<reason> // '').Str,
@@ -212,23 +210,23 @@ class WWW::HorizonsEphemerisSystem::Client {
         $response;
     }
 
-    method observer-ephemeris(Bool :$throw = True, *%params --> HorizonsResponse:D) {
+    method observer-ephemeris(Bool :$throw = True, *%params --> WWW::HorizonsEphemerisSystem::Response:D) {
         self!query-for('OBSERVER', :$throw, |%params)
     }
 
-    method vectors-ephemeris(Bool :$throw = True, *%params --> HorizonsResponse:D) {
+    method vectors-ephemeris(Bool :$throw = True, *%params --> WWW::HorizonsEphemerisSystem::Response:D) {
         self!query-for('VECTORS', :$throw, |%params)
     }
 
-    method elements-ephemeris(Bool :$throw = True, *%params --> HorizonsResponse:D) {
+    method elements-ephemeris(Bool :$throw = True, *%params --> WWW::HorizonsEphemerisSystem::Response:D) {
         self!query-for('ELEMENTS', :$throw, |%params)
     }
 
-    method approach-table(Bool :$throw = True, *%params --> HorizonsResponse:D) {
+    method approach-table(Bool :$throw = True, *%params --> WWW::HorizonsEphemerisSystem::Response:D) {
         self!query-for('APPROACH', :$throw, |%params)
     }
 
-    method spk-file(Bool :$throw = True, *%params --> HorizonsResponse:D) {
+    method spk-file(Bool :$throw = True, *%params --> WWW::HorizonsEphemerisSystem::Response:D) {
         self!query-for('SPK', :$throw, |%params)
     }
 
@@ -244,7 +242,7 @@ class WWW::HorizonsEphemerisSystem::Client {
         $table.trim;
     }
 
-    method !query-for(Str:D $ephem-type, Bool :$throw = True, *%params --> HorizonsResponse:D) {
+    method !query-for(Str:D $ephem-type, Bool :$throw = True, *%params --> WWW::HorizonsEphemerisSystem::Response:D) {
         die X::WWW::HorizonsEphemerisSystem.new(
             message => "Unsupported EPHEM_TYPE '$ephem-type'"
         ) unless %EPHEM-TYPES{$ephem-type};
