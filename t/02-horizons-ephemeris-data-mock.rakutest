@@ -26,7 +26,10 @@ class MockHorizonsClient {
     method vectors-ephemeris(*%params) {
         @!calls.push: { method => 'vectors', params => %params };
         self!response(q:to/VECT/);
-HEADER
+Target body name: Mars (499)
+Center body name: Solar System Barycenter (0)
+Reference frame: ICRF
+Output units: KM-S
 $$SOE
 JDTDB,X,Y,Z
 2451544.5,1.0,2.0,3.0
@@ -56,6 +59,32 @@ JDTDB,EC,IN
 $$EOE
 ELEM
     }
+
+    method spk-file(*%params) {
+        @!calls.push: { method => 'spk', params => %params };
+        WWW::HorizonsEphemerisSystem::Response.new(
+            success => True,
+            status => 200,
+            reason => 'OK',
+            request-url => 'mock://horizons',
+            headers => {},
+            body => '',
+            format => 'json',
+            json => {
+                signature => { version => '1.3' },
+                spk => 'BASE64-SPK',
+                spk_file_id => 'mock.bsp',
+            },
+        )
+    }
+
+    method approach-table(*%params) {
+        @!calls.push: { method => 'approach', params => %params };
+        self!response(q:to/APPROACH/);
+Target body name: Test object (999)
+Center body name: Earth (399)
+APPROACH
+    }
 }
 
 my $mock = MockHorizonsClient.new;
@@ -73,6 +102,12 @@ my @state-default = horizons-ephemeris-data('state', '499', 'position', :client(
 is @state-default.elems, 1, 'state default returns one parsed row';
 is @state-default[0]<X>, 1, 'state result has parsed X column';
 ok @state-default[0]<Date>:exists, 'state mapping applies Date key';
+isa-ok @state-default[0].context, EphemerisContext, 'parsed state row carries context directly';
+is @state-default[0].context.time-scale, 'TDB', 'state context records explicit time scale';
+is @state-default[0].context.unit-for('X'), 'km', 'state context records field units';
+is @state-default[0].context.center, 'Solar System Barycenter (0)', 'state context prefers reported center';
+is @state-default[0].context.reference-frame, 'ICRF', 'state context records reported frame';
+ok @state-default[0].assert-compatible(@state-default[0]), 'records with equal contexts are compatible';
 
 my %call1 = $mock.calls[*-1];
 is %call1<method>, 'vectors', 'state uses vectors ephemeris call';
@@ -136,6 +171,41 @@ ok %assoc{'2451544.5'}<Inclination>:exists, 'orbital mapping applies Inclination
 my %call4 = $mock.calls[*-1];
 is %call4<method>, 'elements', 'orbital-elements uses elements-ephemeris';
 ok %call4<params><TLIST>.contains('Mon 10 Jan 2000 00:00:00'), 'datetime list maps to TLIST';
+
+my $dataset = horizons-ephemeris-data(
+    'state', '499', 'position', :modifier<dataset>, :client($mock),
+);
+isa-ok $dataset, EphemerisDataset, 'dataset modifier returns a dataset object';
+is $dataset.elems, 1, 'dataset contains parsed records';
+is $dataset[0].context, $dataset.context, 'dataset records share dataset context';
+ok $dataset.columns.grep(* eq 'X').so, 'dataset retains source column schema';
+
+my @other-corrections = horizons-ephemeris-data(
+    'state', { target => '499', corrections => 'light-time' }, 'position', :client($mock),
+);
+throws-like {
+    @state-default[0].assert-compatible(@other-corrections[0]);
+}, X::AdHoc, 'compatibility check rejects records with different corrections';
+
+my $spk = horizons-ephemeris-data(
+    'spk', { target => '1;', dates => ['2020-01-01', '2030-12-31'] }, :client($mock),
+);
+isa-ok $spk, SPKResult, 'SPK product has a high-level result object';
+is $spk.content, 'BASE64-SPK', 'SPK result exposes encoded content';
+is $spk.file-id, 'mock.bsp', 'SPK result exposes suggested file name';
+my %spk-call = $mock.calls[*-1];
+is %spk-call<method>, 'spk', 'SPK high-level product uses spk-file client method';
+is %spk-call<params><START_TIME>, "'2020-01-01'", 'SPK start date is normalized';
+is %spk-call<params><STOP_TIME>, "'2030-12-31'", 'SPK stop date is normalized';
+
+my $approach = horizons-ephemeris-data(
+    'approach', { target => '999', close-approach-table-type => 'extended' }, :client($mock),
+);
+isa-ok $approach, ApproachResult, 'APPROACH product has a high-level result object';
+ok $approach.text.contains('Target body name'), 'APPROACH result preserves Horizons table text';
+my %approach-call = $mock.calls[*-1];
+is %approach-call<method>, 'approach', 'APPROACH high-level product uses approach-table client method';
+is %approach-call<params><CA_TABLE_TYPE>, 'EXTENDED', 'APPROACH options are normalized';
 
 # Raw mode exposes request envelope.
 my %raw = horizons-ephemeris-data('state', '499', 'position', :raw, :client($mock));

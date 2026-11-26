@@ -4,7 +4,9 @@ use HTTP::Tiny;
 use JSON::Fast;
 
 constant $HORIZONS-DEFAULT-API-URL     = 'https://ssd.jpl.nasa.gov/api/horizons.api';
+constant $HORIZONS-DEFAULT-FILE-API-URL = 'https://ssd.jpl.nasa.gov/api/horizons_file.api';
 constant $HORIZONS-DEFAULT-API-VERSION = '1.3';
+constant $HORIZONS-DEFAULT-FILE-API-VERSION = '1.0';
 constant $HORIZONS-DEFAULT-USER-AGENT  = 'WWW::HorizonsEphemerisSystem/0.1 (Raku; HTTP::Tiny)';
 
 my constant %EPHEM-TYPES = set <OBSERVER VECTORS ELEMENTS SPK APPROACH>;
@@ -41,6 +43,8 @@ class WWW::HorizonsEphemerisSystem::Response {
     has Int $.status;
     has Str $.reason = '';
     has Str $.request-url;
+    has Str $.request-method = 'GET';
+    has Str $.request-summary = '';
     has Hash $.headers = {};
     has Str $.body = '';
     has Str $.format = 'json';
@@ -82,13 +86,19 @@ class WWW::HorizonsEphemerisSystem::Response {
 
 class WWW::HorizonsEphemerisSystem::Client {
     has Str $.api-url = $HORIZONS-DEFAULT-API-URL;
+    has Str $.file-api-url = $HORIZONS-DEFAULT-FILE-API-URL;
+    has Int $.url-length-limit = 1800;
     has Str $.expected-api-version = $HORIZONS-DEFAULT-API-VERSION;
+    has Str $.expected-file-api-version = $HORIZONS-DEFAULT-FILE-API-VERSION;
     has Bool $.strict-version-check = False;
     has $!http-client;
 
     submethod BUILD(
         Str :$!api-url = $HORIZONS-DEFAULT-API-URL,
+        Str :$!file-api-url = $HORIZONS-DEFAULT-FILE-API-URL,
+        Int :$!url-length-limit = 1800,
         Str :$!expected-api-version = $HORIZONS-DEFAULT-API-VERSION,
+        Str :$!expected-file-api-version = $HORIZONS-DEFAULT-FILE-API-VERSION,
         Bool :$!strict-version-check = False,
         Str :$user-agent = $HORIZONS-DEFAULT-USER-AGENT,
         :$http-client
@@ -139,13 +149,58 @@ class WWW::HorizonsEphemerisSystem::Client {
         $query.chars ?? "$!api-url?$query" !! $!api-url;
     }
 
-    method query(*%params, Str :$format = 'json', Bool :$throw = True --> WWW::HorizonsEphemerisSystem::Response:D) {
+    # The regular API receives query parameters, whereas the file API receives
+    # Horizons batch syntax in a multipart `input` part.  Keep that difference
+    # here, at the transport boundary; callers only deal in API parameters.
+    method query(
+        *%params,
+        Str :$format = 'json',
+        Str :$transport = 'auto',
+        Bool :$throw = True
+        --> WWW::HorizonsEphemerisSystem::Response:D
+    ) {
         my %call-params = %params;
         %call-params<throw>:delete;
+        %call-params<transport>:delete;
         %call-params<format> //= $format;
 
         my $request-url = self.build-url(|%call-params);
-        my %http = $!http-client.get($request-url);
+        my $selected = $transport.lc;
+        die X::WWW::HorizonsEphemerisSystem.new(
+            message => "Unsupported transport '$transport'. Expected get, file, or auto"
+        ) unless $selected eq any(<get file auto>);
+
+        $selected = $request-url.chars > $!url-length-limit ?? 'file' !! 'get'
+            if $selected eq 'auto';
+
+        my %http;
+        my $response-url;
+        my $request-method;
+        my $request-summary;
+        if $selected eq 'get' {
+            %http = $!http-client.get($request-url);
+            $response-url = $request-url;
+            $request-method = 'GET';
+            $request-summary = $request-url;
+        }
+        else {
+            my $input = self.batch-input(|%call-params);
+            my %multipart = self!multipart-body(
+                format => (%call-params<format> // 'json').Str,
+                input  => $input,
+            );
+            %http = $!http-client.post(
+                $!file-api-url,
+                :content(%multipart<body>.encode('utf8')),
+                headers => {
+                    'content-type' => "multipart/form-data; boundary={%multipart<boundary>}",
+                },
+            );
+            $response-url = $!file-api-url;
+            $request-method = 'POST';
+            # Avoid placing potentially huge TLIST values in error messages.
+            $request-summary = "POST $!file-api-url ({$input.lines.elems - 1} batch settings)";
+        }
         my $body = %http<content>.defined ?? %http<content>.decode('utf8') !! '';
 
         my %json;
@@ -170,7 +225,9 @@ class WWW::HorizonsEphemerisSystem::Client {
             success     => so (%http<success> // False),
             status      => (%http<status> // 0).Int,
             reason      => (%http<reason> // '').Str,
-            request-url => $request-url,
+            request-url => $response-url,
+            request-method => $request-method,
+            request-summary => $request-summary,
             headers     => (%http<headers> // {}).Hash,
             body        => $body,
             format      => $effective-format,
@@ -191,23 +248,59 @@ class WWW::HorizonsEphemerisSystem::Client {
                 if $api-error.chars {
                     die X::WWW::HorizonsEphemerisSystem::API.new(
                         message     => $api-error,
-                        request-url => $request-url
+                        request-url => $response-url
                     );
                 }
 
                 my $version = $response.api-version;
+                my $expected-version = $request-method eq 'POST'
+                    ?? $!expected-file-api-version
+                    !! $!expected-api-version;
                 if $!strict-version-check
                     && $version.chars
-                    && $version ne $!expected-api-version {
+                    && $version ne $expected-version {
                     die X::WWW::HorizonsEphemerisSystem::API.new(
-                        message     => "Unexpected API version '$version' (expected '{$!expected-api-version}')",
-                        request-url => $request-url
+                        message     => "Unexpected API version '$version' (expected '$expected-version')",
+                        request-url => $response-url
                     );
                 }
             }
         }
 
         $response;
+    }
+
+    method batch-input(*%params --> Str:D) {
+        my %batch = %params;
+        %batch<format>:delete;
+        if %batch<EPHEM_TYPE>:exists {
+            %batch<TABLE_TYPE> = %batch<EPHEM_TYPE>;
+            %batch<EPHEM_TYPE>:delete;
+        }
+
+        my @lines = '!$$SOF';
+        for %batch.keys.sort -> $key {
+            my $value = %batch{$key};
+            die X::WWW::HorizonsEphemerisSystem.new(
+                message => "Batch value for '$key' cannot contain a newline"
+            ) if $value.Str.contains("\n") || $value.Str.contains("\r");
+            @lines.push: "$key=$value";
+        }
+        @lines.join("\n") ~ "\n";
+    }
+
+    method !multipart-body(Str:D :$format!, Str:D :$input! --> Hash:D) {
+        my $boundary = '----RakuHorizons' ~ now.Int ~ '-' ~ (1000000..9999999).pick;
+        my $crlf = "\r\n";
+        my $body = "--$boundary$crlf"
+            ~ "Content-Disposition: form-data; name=\"format\"$crlf$crlf"
+            ~ "$format$crlf"
+            ~ "--$boundary$crlf"
+            ~ "Content-Disposition: form-data; name=\"input\"; filename=\"horizons.in\"$crlf"
+            ~ "Content-Type: text/plain; charset=utf-8$crlf$crlf"
+            ~ $input ~ $crlf
+            ~ "--$boundary--$crlf";
+        { :$boundary, :$body };
     }
 
     method observer-ephemeris(Bool :$throw = True, *%params --> WWW::HorizonsEphemerisSystem::Response:D) {

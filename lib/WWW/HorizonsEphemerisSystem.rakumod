@@ -5,8 +5,85 @@ unit module WWW::HorizonsEphemerisSystem;
 use WWW::HorizonsEphemerisSystem::Client;
 use Hash::Merge;
 
-my constant @ETYPES = <state orbital-elements observer>;
+my constant @ETYPES = <state orbital-elements observer spk approach>;
 my constant @MODIFIERS = <data dataset association>;
+
+# Context is deliberately shared by all records in one response.  It keeps
+# the row shape backwards-compatible while making scientific provenance part
+# of the parsed value rather than an easily separated side channel.
+our class EphemerisContext is export {
+    has Str $.product is required;
+    has Str $.center = '';
+    has Str $.reference-frame = '';
+    has Str $.reference-plane = '';
+    has Str $.time-scale = '';
+    has Str $.corrections = '';
+    has Map $.units-by-field = Map.new;
+    has Map $.requested-parameters = Map.new;
+    has Map $.reported-header = Map.new;
+
+    method unit-for(Str:D $field --> Str:D) {
+        ($!units-by-field{$field} // '').Str;
+    }
+}
+
+our role ContextualRecord is export {
+    has EphemerisContext $.context is rw;
+
+    method unit-for(Str:D $field --> Str:D) {
+        $!context.unit-for($field);
+    }
+
+    method assert-compatible($other --> Bool:D) {
+        die 'Cannot compare an ephemeris record with a value that has no context'
+        unless $other.^can('context');
+        my $other-context = $other.context;
+        for <product center reference-frame reference-plane time-scale corrections> -> $field {
+            my $left = $!context."$field"();
+            my $right = $other-context."$field"();
+            die "Incompatible ephemeris records: $field differs ('$left' vs '$right')"
+            if $left ne $right;
+        }
+        True;
+    }
+}
+
+our class EphemerisDataset does Positional does Iterable is export {
+    has @.records;
+    has EphemerisContext $.context is required;
+    has @.columns;
+
+    method AT-POS($index) { @!records[$index] }
+    method elems(--> Int:D) { @!records.elems }
+    method iterator() { @!records.iterator }
+    method rows(--> Array:D) { @!records.Array }
+
+    method assert-compatible($other --> Bool:D) {
+        die 'Cannot compare an ephemeris dataset with a value that has no context'
+        unless $other.^can('context');
+        my $other-context = $other.context;
+        for <product center reference-frame reference-plane time-scale corrections> -> $field {
+            my $left = $!context."$field"();
+            my $right = $other-context."$field"();
+            die "Incompatible ephemeris datasets: $field differs ('$left' vs '$right')"
+            if $left ne $right;
+        }
+        True;
+    }
+}
+
+our class SPKResult is export {
+    has Str $.content = '';
+    has Str $.file-id = '';
+    has EphemerisContext $.context is required;
+    has WWW::HorizonsEphemerisSystem::Response $.response is required;
+}
+
+our class ApproachResult is export {
+    has Str $.text = '';
+    has EphemerisContext $.context is required;
+    has WWW::HorizonsEphemerisSystem::Response $.response is required;
+}
 
 my constant %FRAME-MAP =
     'icrf'                => { REF_PLANE => "'FRAME'", REF_SYSTEM => "'ICRF'" },
@@ -63,12 +140,16 @@ my constant %OBSERVER-PROP-CODE =
 my constant %QUERY-PARAMETERS =
     'state' => <target center dates frame corrections>,
     'orbital-elements' => <target center dates frame>,
-    'observer' => <target center dates earth-atmospheric-refraction min-elevation max-relative-airmass skip-day min-max-solar-elongation max-angular-rate rise-transit-set-only>;
+    'observer' => <target center dates earth-atmospheric-refraction min-elevation max-relative-airmass skip-day min-max-solar-elongation max-angular-rate rise-transit-set-only>,
+    'spk' => <target dates>,
+    'approach' => <target close-approach-table-type>;
 
 my constant %PROPERTIES =
     'state' => <x y z vx vy vz distance radial-velocity light-time position velocity state all>,
     'orbital-elements' => <periapsis-date eccentricity periapsis-distance inclination ascending-node-longitude perifocus-argument mean-motion mean-anomaly true-anomaly semi-major-axis apoapsis-distance orbital-period all>,
-    'observer' => <azimuth elevation all>;
+    'observer' => <azimuth elevation all>,
+    'spk' => <content file-id>,
+    'approach' => <all>;
 
 #----------------------------------------------------------
 # Orbital properties
@@ -384,12 +465,13 @@ our sub horizons-ephemeris-data(
     $properties = 'all',
     Str :$modifier = 'data',
     :$client,
+    Str :$transport = 'auto',
     Bool :$raw = False,
     Bool :$throw = True,
 ) is export {
     my $etype-n = norm($etype);
     die "Invalid ephemeris type '$etype'. Expected one of: {@ETYPES.join(', ')}"
-        unless $etype-n eq any(@ETYPES);
+    unless $etype-n eq any(@ETYPES);
 
     if $query ~~ Str {
         my $meta = norm($query);
@@ -399,7 +481,7 @@ our sub horizons-ephemeris-data(
 
     my $modifier-n = norm($modifier);
     die "Invalid modifier '$modifier'. Expected one of: {@MODIFIERS.join(', ')}"
-        unless $modifier-n eq any(@MODIFIERS);
+    unless $modifier-n eq any(@MODIFIERS);
 
     my $c = $client // horizons-client();
     my %q = normalize-query($query);
@@ -407,13 +489,19 @@ our sub horizons-ephemeris-data(
 
     my $response = do given $etype-n {
         when 'state' {
-            $c.vectors-ephemeris(|%api, throw => $throw)
+            $c.vectors-ephemeris(|%api, :$transport, throw => $throw)
         }
         when 'orbital-elements' {
-            $c.elements-ephemeris(|%api, throw => $throw)
+            $c.elements-ephemeris(|%api, :$transport, throw => $throw)
+        }
+        when 'spk' {
+            $c.spk-file(|%api, :$transport, throw => $throw)
+        }
+        when 'approach' {
+            $c.approach-table(|%api, :$transport, throw => $throw)
         }
         default {
-            $c.observer-ephemeris(|%api, throw => $throw)
+            $c.observer-ephemeris(|%api, :$transport, throw => $throw)
         }
     };
 
@@ -425,10 +513,28 @@ our sub horizons-ephemeris-data(
     } if $raw;
 
     my $result = $response.result;
-    my @rows = parse-result-csv($result);
+    my %parsed = parse-result-table($result);
+    my $context = make-context($etype-n, %api, %parsed<header> // {});
+
+    if $etype-n eq 'spk' {
+        return SPKResult.new(
+            content => $response.spk,
+            file-id => $response.spk-file-id,
+            :$context,
+            :$response,
+        );
+    }
+
+    if $etype-n eq 'approach' {
+        return ApproachResult.new(:text($result), :$context, :$response)
+        unless (%parsed<rows> // []).elems;
+    }
+
+    my @rows = (%parsed<rows> // []).Array;
     @rows = @rows.map({ map-state-record($_) }).Array if $etype-n eq 'state';
     @rows = @rows.map({ map-orbital-record($_) }).Array if $etype-n eq 'orbital-elements';
     @rows = @rows.map({ map-observer-record($_) }).Array if $etype-n eq 'observer';
+    @rows = @rows.map({ attach-context($_, $context) }).Array;
 
     return $result unless @rows.elems;
 
@@ -444,6 +550,14 @@ our sub horizons-ephemeris-data(
             %assoc{%row{$k}.Str} = %row;
         }
         return %assoc;
+    }
+
+    if $modifier-n eq 'dataset' {
+        return EphemerisDataset.new(
+            records => @rows,
+            :$context,
+            columns => (%parsed<headers> // []).Array,
+        );
     }
 
     @rows;
@@ -476,9 +590,12 @@ sub build-api-params(Str:D $etype, %query, $properties --> Hash:D) {
         format      => 'json',
         OBJ_DATA    => 'NO',
         MAKE_EPHEM  => 'YES',
-        CSV_FORMAT  => 'YES',
-        TIME_DIGITS => "'FRACSEC'",
     ).Hash;
+
+    if $etype eq any(<state orbital-elements observer>) {
+        %api<CSV_FORMAT> = 'YES';
+        %api<TIME_DIGITS> = "'FRACSEC'";
+    }
 
     my $target = %q<target> // die "Query must include a target";
     %api<COMMAND> = command-value($target);
@@ -487,17 +604,21 @@ sub build-api-params(Str:D $etype, %query, $properties --> Hash:D) {
         for center-params(%q<center>).pairs -> $p {
             %api{$p.key} = $p.value;
         }
-    }
-    else {
+    } elsif $etype ne any(<spk approach>) {
         %api<CENTER> = "'500@0'" if $etype ne 'observer';
     }
 
-    if %q<dates>:exists {
+    if $etype eq 'spk' {
+        die 'SPK requests require dates as a [start, stop] pair'
+        unless %q<dates>:exists;
+        for spk-dates-params(%q<dates>).pairs -> $p {
+            %api{$p.key} = $p.value;
+        }
+    } elsif %q<dates>:exists {
         for dates-params(%q<dates>).pairs -> $p {
             %api{$p.key} = $p.value;
         }
-    }
-    else {
+    } elsif $etype ne 'approach' {
         %api<TLIST> = "'" ~ default-date-time-utc() ~ "'";
         %api<TLIST_TYPE> = 'CAL';
     }
@@ -511,12 +632,20 @@ sub build-api-params(Str:D $etype, %query, $properties --> Hash:D) {
     }
 
     if $etype eq 'state' {
+        %api<TIME_TYPE> = 'TDB';
+        %api<OUT_UNITS> = 'KM-S';
         my $corr = norm(%q<corrections> // 'none');
         %api<VEC_CORR> = %STATE-CORR{$corr} // die "Unsupported corrections '%q<corrections>'";
         %api<VEC_TABLE> = "'" ~ state-columns-group($properties) ~ "'";
     }
 
+    if $etype eq 'orbital-elements' {
+        %api<TIME_TYPE> = 'TDB';
+        %api<OUT_UNITS> = 'KM-S';
+    }
+
     if $etype eq 'observer' {
+        %api<TIME_TYPE> = 'UT';
         %api<CAL_FORMAT> = 'JD';
         %api<ANG_FORMAT> = 'DEG';
         %api<RANGE_UNITS> = 'KM';
@@ -536,6 +665,10 @@ sub build-api-params(Str:D $etype, %query, $properties --> Hash:D) {
         %api<ANG_RATE_CUTOFF> = "'" ~ $rate.Str ~ "'";
 
         %api<QUANTITIES> = "'" ~ observer-quantities($properties) ~ "'";
+    }
+
+    if ($etype eq 'approach') && (%q<close-approach-table-type>:exists) {
+        %api<CA_TABLE_TYPE> = norm(%q<close-approach-table-type>).uc;
     }
 
     %api;
@@ -626,6 +759,16 @@ sub dates-params($dates --> Hash:D) {
     }
 }
 
+sub spk-dates-params($dates --> Hash:D) {
+    die 'SPK dates must be a [start, stop] pair' unless $dates ~~ Positional;
+    my @dates = $dates.list;
+    die 'SPK dates must be a [start, stop] pair' unless @dates.elems == 2;
+    {
+        START_TIME => "'" ~ @dates[0].Str ~ "'",
+        STOP_TIME  => "'" ~ @dates[1].Str ~ "'",
+    }
+}
+
 sub default-date-time-utc(--> Str:D) {
     my $now = DateTime.now.utc;
     sprintf(
@@ -681,13 +824,13 @@ sub observer-quantities($properties --> Str:D) {
     @codes.join(',');
 }
 
-sub parse-result-csv(Str:D $result --> Array:D) {
+sub parse-result-table(Str:D $result --> Hash:D) {
     my @all = $result.lines;
-    return [] unless @all.elems;
+    return { headers => [], rows => [], header => {} } unless @all.elems;
 
     my $soe = @all.first(*.contains('$$SOE'), :k);
     my $eoe = @all.first(*.contains('$$EOE'), :k);
-    return [] unless $soe.defined && $eoe.defined && $eoe > $soe;
+    return { headers => [], rows => [], header => parse-response-header(@all) } unless $soe.defined && $eoe.defined && $eoe > $soe;
 
     my $header-line;
     my $data-start = $soe + 1;
@@ -710,12 +853,12 @@ sub parse-result-csv(Str:D $result --> Array:D) {
             }
         }
     }
-    return [] unless $header-line.defined;
+    return { headers => [], rows => [], header => parse-response-header(@all[0 ..^ $soe]) } unless $header-line.defined;
 
     my @headers = split-csv-line($header-line)
         .map(*.trim)
         .grep(*.chars);
-    return [] unless @headers.elems;
+    return { headers => [], rows => [], header => parse-response-header(@all[0 ..^ $soe]) } unless @headers.elems;
 
     my @rows;
     for @all[$data-start .. $eoe - 1].grep(*.trim.chars) -> $line {
@@ -729,7 +872,127 @@ sub parse-result-csv(Str:D $result --> Array:D) {
         @rows.push: %row;
     }
 
-    @rows;
+    {
+        headers => @headers.Array,
+        rows    => @rows.Array,
+        header  => parse-response-header(@all[0 ..^ $soe]),
+    };
+}
+
+sub parse-result-csv(Str:D $result --> Array:D) {
+    (parse-result-table($result)<rows> // []).Array;
+}
+
+sub parse-response-header(@lines --> Hash:D) {
+    my %header;
+    for @lines -> $line {
+        # Horizons metadata lines use a stable "label : value" shape.  Keep
+        # all labels, including unfamiliar future additions, for provenance.
+        if $line ~~ /^\s* (.+?) \s* ':' \s* (.+?) \s*$/ {
+            my $key = ~$0;
+            my $value = ~$1;
+            %header{$key} = $value if $key.chars && $value.chars;
+        }
+    }
+    %header;
+}
+
+sub unquote-api-value($value --> Str:D) {
+    my $text = ($value // '').Str.trim;
+    $text = $text.substr(1, $text.chars - 2)
+        if $text.chars >= 2 && $text.starts-with("'") && $text.ends-with("'");
+    $text;
+}
+
+sub response-header-value(%header, *@names --> Str:D) {
+    for @names -> $name {
+        return %header{$name}.Str if %header{$name}:exists;
+    }
+    '';
+}
+
+sub state-unit-map(Str:D $out-units --> Hash:D) {
+    my $units = $out-units.uc;
+    my ($distance, $time) = $units eq 'AU-D'
+        ?? ('au', 'd')
+        !! $units eq 'KM-D'
+            ?? ('km', 'd')
+            !! ('km', 's');
+    my %units;
+    for <X Y Z XUncertainty YUncertainty ZUncertainty AlongUncertainty CrossUncertainty NormalUncertainty RadialUncertainty TransverseUncertainty Distance> -> $field {
+        %units{$field} = $distance;
+    }
+    for <Vx Vy Vz VxUncertainty VyUncertainty VzUncertainty AlongVelocityUncertainty CrossVelocityUncertainty NormalVelocityUncertainty RadialVelocityUncertainty TransverseVelocityUncertainty RadialVelocity> -> $field {
+        %units{$field} = "$distance/$time";
+    }
+    %units<LightTime> = 's';
+    %units;
+}
+
+sub property-unit-map(Str:D $etype, Str:D $out-units --> Hash:D) {
+    return state-unit-map($out-units) if $etype eq 'state';
+    if $etype eq 'orbital-elements' {
+        my %units = state-unit-map($out-units);
+        for <PeriapsisDistance SemiMajorAxis ApoapsisDistance> -> $field {
+            %units{$field} = %units<X>;
+        }
+        %units<Inclination> = 'deg';
+        %units<AscendingNodeLongitude> = 'deg';
+        %units<PerifocusArgument> = 'deg';
+        %units<MeanAnomaly> = 'deg';
+        %units<TrueAnomaly> = 'deg';
+        %units<MeanMotion> = 'deg/d';
+        %units<OrbitalPeriod> = 'd';
+        return %units;
+    }
+    # Observer ranges are explicitly requested in kilometres and its angular
+    # columns in degrees by build-api-params.
+    {
+        Azimuth => 'deg', Elevation => 'deg',
+        ApparentDistanceToSun => 'km', ApparentDistanceToObserver => 'km',
+        ApparentSpeedRelativeToSun => 'km/s',
+        ApparentSpeedRelativeToObserver => 'km/s',
+    };
+}
+
+sub make-context(Str:D $etype, %api, %header --> EphemerisContext:D) {
+    my %product = state => 'VECTORS', 'orbital-elements' => 'ELEMENTS',
+                  observer => 'OBSERVER', spk => 'SPK', approach => 'APPROACH';
+    my $time-scale = response-header-value(%header, 'Time scale', 'Time Scale')
+        || (%api<TIME_TYPE> // ($etype eq 'orbital-elements' ?? 'TDB' !! ''));
+    my $center = response-header-value(%header, 'Center body name', 'Center-site name')
+        || unquote-api-value(%api<CENTER> // '');
+    my $reported-frame = response-header-value(%header, 'Reference frame', 'Reference Frame');
+    # Vector output labels the complete effective basis (for example,
+    # "Ecliptic of J2000.0") as its reference frame.  Preserve it as the
+    # plane when no separate plane label is available.
+    my $frame = unquote-api-value(%api<REF_SYSTEM> // '') || $reported-frame;
+    my $plane = response-header-value(%header, 'Reference plane', 'Reference Plane')
+        || unquote-api-value(%api<REF_PLANE> // '')
+        || $reported-frame;
+    my $corrections = response-header-value(%header, 'Corrections')
+        || unquote-api-value(%api<VEC_CORR> // '');
+    EphemerisContext.new(
+        product => %product{$etype},
+        center => $center,
+        reference-frame => $frame,
+        reference-plane => $plane,
+        time-scale => $time-scale,
+        corrections => $corrections,
+        units-by-field => property-unit-map(
+            $etype,
+            response-header-value(%header, 'Output units', 'Output Units')
+                || (%api<OUT_UNITS> // 'KM-S').Str,
+        ).Map,
+        requested-parameters => %api.Map,
+        reported-header => %header.Map,
+    );
+}
+
+sub attach-context($row where * ~~ Associative, EphemerisContext:D $context) {
+    my $record = $row.Hash but ContextualRecord;
+    $record.context = $context;
+    $record;
 }
 
 sub _extract-table(Str:D $text --> Str:D) {

@@ -7,9 +7,19 @@ use WWW::HorizonsEphemerisSystem::Client;
 class MockHTTPClient {
     has Str $.last-url is rw;
     has Hash $.reply is rw;
+    has @.posts;
 
     method get(Str:D $url --> Hash:D) {
         $!last-url = $url;
+        $!reply
+    }
+
+    method post(Str:D $url, :$content, :%headers --> Hash:D) {
+        @!posts.push: {
+            url => $url,
+            content => $content.decode('utf8'),
+            headers => %headers,
+        };
         $!reply
     }
 }
@@ -59,6 +69,27 @@ ok $response.is-json, 'response format detected as json';
 is $response.api-version, '1.3', 'signature version is extracted';
 is $response.result, 'ok', 'JSON result payload extracted';
 ok $mock.last-url.contains('EPHEM_TYPE=OBSERVER'), 'observer-ephemeris sets EPHEM_TYPE';
+
+my $file-response = $client.vectors-ephemeris(
+    COMMAND => "'499'",
+    TLIST => "'2451544.5','2451545.5'",
+    :transport<file>,
+);
+is $file-response.request-method, 'POST', 'file transport is a POST request';
+is $file-response.request-url, 'https://ssd.jpl.nasa.gov/api/horizons_file.api', 'file transport uses file API endpoint';
+my %post = $mock.posts[*-1];
+ok %post<headers><content-type>.starts-with('multipart/form-data; boundary='), 'file request is multipart';
+ok %post<content>.contains('!$$SOF'), 'file input has Horizons batch marker';
+ok %post<content>.contains("TABLE_TYPE=VECTORS"), 'file input translates EPHEM_TYPE to TABLE_TYPE';
+ok !%post<content>.contains('EPHEM_TYPE='), 'file input omits GET-only EPHEM_TYPE';
+ok %post<content>.contains("TLIST='2451544.5','2451545.5'"), 'file input retains long-list value without URL encoding';
+
+my $short-limit-client = WWW::HorizonsEphemerisSystem::Client.new(
+    http-client => $mock,
+    url-length-limit => 1,
+);
+$short-limit-client.query(COMMAND => "'499'");
+is $mock.posts.elems, 2, 'auto transport selects file API when URL exceeds configured limit';
 
 $mock.reply = {
     success => True,

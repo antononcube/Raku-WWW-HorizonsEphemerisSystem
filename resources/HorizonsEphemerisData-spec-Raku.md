@@ -6,14 +6,14 @@ Import ephemeris data from the Jet Propulsion Laboratory Horizons System.
 
 ### Usage
 
-`horizons-ephemeris-data($etype, $query, $properties, :$modifier)`
+`horizons-ephemeris-data($etype, $query, $properties, :$modifier, :$transport)`
 queries the [Horizons System](https://ssd.jpl.nasa.gov/horizons/) and returns values of the requested properties for the given query and ephemeris type.
 
 ### Details & Options
 
 - `horizons-ephemeris-data` retrieves data from [Horizons System](https://ssd.jpl.nasa.gov/horizons/) using [Horizons API](https://ssd-api.jpl.nasa.gov/doc/horizons.html).
 - Horizons System has ephemerides of planets, natural satellites, spacecraft, asteroids, comets, and several dynamical points.
-- `$etype` can be one of: `state`, `orbital-elements`, `observer`.
+- `$etype` can be one of: `state`, `orbital-elements`, `observer`, `spk`, `approach`.
 - Each ephemeris type has its own query parameters and properties.
 
 - Queries can be specified in these forms:
@@ -26,6 +26,9 @@ queries the [Horizons System](https://ssd.jpl.nasa.gov/horizons/) and returns va
 
 - Valid query parameters for an ephemeris type can be obtained with `horizons-ephemeris-data($etype, 'query-parameters')`.
 - Properties available for an ephemeris type can be obtained with `horizons-ephemeris-data($etype, 'properties')`.
+- `transport` is `auto` by default. It uses GET for ordinary requests and the
+  Horizons file/POST API when the encoded URL exceeds the configured client limit;
+  use `get` or `file` to select a transport explicitly.
 
 - Query parameters for `state`:
 
@@ -78,7 +81,13 @@ queries the [Horizons System](https://ssd.jpl.nasa.gov/horizons/) and returns va
 | Value         | Description                                                                           |
 |---------------|---------------------------------------------------------------------------------------|
 | `association` | nested associative structure with dates at first level and properties at second level |
-| `dataset`     | tabular dataset-like structure equivalent to `association`                            |
+| `dataset`     | `EphemerisDataset`, with records, source columns, and shared metadata context          |
+
+All parsed row records remain associative and carry `.context`. The context
+contains the product, units by field, time scale, reference frame and plane,
+centre, correction model, effective request parameters, and response-header
+metadata. `record.assert-compatible($other)` rejects records with incompatible
+scientific coordinate contexts.
 
 ## Examples
 
