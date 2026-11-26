@@ -11,9 +11,52 @@ through the [HTTP API](https://ssd-api.jpl.nasa.gov/doc/horizons.html).
 
 - Uses ["HTTP::Tiny"](https://raku.land/zef:jjatria/HTTP::Tiny), [JJp1], for all API requests.
 - Percent-encodes query parameters for safe Horizons URL usage.
+- Automatically switches to Horizons' file/POST API for requests whose encoded URL exceeds the configured limit.
 - Supports `json` and `text` output.
 - Convenience methods for `OBSERVER`, `VECTORS`, `ELEMENTS`, `APPROACH`, and `SPK` requests.
 - Raises typed exceptions for HTTP errors and API-level JSON errors.
+
+
+----
+
+### Long epoch lists and request transport
+
+`horizons-ephemeris-data` uses `:transport<auto>` by default. It sends
+ordinary requests with GET and switches to the Horizons file API when the URL
+would exceed the client's `url-length-limit` (default: 1800 characters).
+Choose a transport explicitly when needed:
+
+```raku
+horizons-ephemeris-data(
+    'state',
+    { target => '499', dates => @many-epochs },
+    'position',
+    :transport<file>,
+);
+```
+
+The low-level client exposes the same choice through `query` and the product
+methods (`vectors-ephemeris`, `observer-ephemeris`, and so on).
+
+### Context-aware results
+
+Parsed records remain associative, but now carry a shared `.context` with the
+product, centre, frame, reference plane, time scale, corrections, requested
+parameters, response header, and units by field:
+
+```raku
+my @rows = horizons-ephemeris-data('state', '499', 'position');
+say @rows[0].context.time-scale;  # TDB
+say @rows[0].unit-for('X');       # km
+@rows[0].assert-compatible(@rows[1]);
+```
+
+`:modifier<dataset>` returns an `EphemerisDataset` whose records share its
+context and whose `.columns` preserve the Horizons source columns.
+
+`spk` and `approach` are also available as high-level products. `spk` returns
+an `SPKResult` (`.content`, `.file-id`, `.context`); `approach` returns an
+`ApproachResult` (`.text`, `.context`).
 
 ----
 

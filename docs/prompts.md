@@ -67,3 +67,24 @@ If you want, I can draft the concrete module/function skeleton next (`lib/Horizo
 > Ok. Implement the new version of the package "WWW::HorizonsEphemerisSystem" move client class in the file "./lib/WWW/HorizonsEphemerisSystem/Client.rakumod". Implement the sub `horizons-ephemeris-data` in "./lib/WWW/HorizonsEphemerisSystem.rakumod". 
 > Make "top level" tests of `horizons-ephemeris-data`  in a separate test file. 
 > Those tests should cover the commands in the Raku spec.
+
+
+----
+
+## Chasing the Moon draft
+
+```text
+Using the code and explanations in the Jupyter notebook "./docs/Artemis-II-trajectory.ipynb" create a new notebook "docs/Chasing-the-Moon.ipynb" that:
+
+- Explains:
+  - why Moon's location is usually approximately known
+  - Why it can be hard to land on the Moon
+  - Moon's libration
+- Briefly describes Jet Propulsion Laboratory (JPL) Horizon's Ephemeris system  
+- Briefly describes the goals and planning of the Artemis II mission done April 2026
+- Shows how using the Raku packages "WWW::HorizonsEphemerisSystem" and "JavaScript::D3" one query and plot the trajectory of Artemis II
+- Make a combined plot of the Earth (being stationary), the Moon trajectory, and Artemis II trajectory
+- Explains the "wiggles" of the Moon and Artemis II by pointing out the gravitation pull forces for Earth and Sun
+
+Please, keep it brief, with some, but not many formulas. If you think there are missing or wrong functionalities of "WWW::HorizonsEphemerisSystem" (which is implemented in this directory) please list them.
+```
