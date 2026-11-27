@@ -35,13 +35,15 @@ our role ContextualRecord is export {
     }
 
     method assert-compatible($other --> Bool:D) {
-        die 'Cannot compare an ephemeris record with a value that has no context'
+        die 'Cannot compare an ephemeris record with an undefined value.'
+        unless $other.defined;
+        die 'Cannot compare an ephemeris record with a value that has no context.'
         unless $other.^can('context');
         my $other-context = $other.context;
         for <product center reference-frame reference-plane time-scale corrections> -> $field {
             my $left = $!context."$field"();
             my $right = $other-context."$field"();
-            die "Incompatible ephemeris records: $field differs ('$left' vs '$right')"
+            die "Incompatible ephemeris records: $field differs ('$left' vs '$right')."
             if $left ne $right;
         }
         True;
@@ -59,13 +61,15 @@ our class EphemerisDataset does Positional does Iterable is export {
     method rows(--> Array:D) { @!records.Array }
 
     method assert-compatible($other --> Bool:D) {
-        die 'Cannot compare an ephemeris dataset with a value that has no context'
+        die 'Cannot compare an ephemeris dataset with an undefined value.'
+        unless $other.defined;
+        die 'Cannot compare an ephemeris dataset with a value that has no context.'
         unless $other.^can('context');
         my $other-context = $other.context;
         for <product center reference-frame reference-plane time-scale corrections> -> $field {
             my $left = $!context."$field"();
             my $right = $other-context."$field"();
-            die "Incompatible ephemeris datasets: $field differs ('$left' vs '$right')"
+            die "Incompatible ephemeris datasets: $field differs ('$left' vs '$right')."
             if $left ne $right;
         }
         True;
@@ -470,7 +474,7 @@ our sub horizons-ephemeris-data(
     Bool :$throw = True,
 ) is export {
     my $etype-n = norm($etype);
-    die "Invalid ephemeris type '$etype'. Expected one of: {@ETYPES.join(', ')}"
+    die "Invalid ephemeris type '$etype'. Expected one of: {@ETYPES.join(', ')}."
     unless $etype-n eq any(@ETYPES);
 
     if $query ~~ Str {
@@ -480,7 +484,7 @@ our sub horizons-ephemeris-data(
     }
 
     my $modifier-n = norm($modifier);
-    die "Invalid modifier '$modifier'. Expected one of: {@MODIFIERS.join(', ')}"
+    die "Invalid modifier '$modifier'. Expected one of: {@MODIFIERS.join(', ')}."
     unless $modifier-n eq any(@MODIFIERS);
 
     my $c = $client // horizons-client();
@@ -609,7 +613,7 @@ sub build-api-params(Str:D $etype, %query, $properties --> Hash:D) {
     }
 
     if $etype eq 'spk' {
-        die 'SPK requests require dates as a [start, stop] pair'
+        die 'SPK requests require dates as a [start, stop] pair.'
         unless %q<dates>:exists;
         for spk-dates-params(%q<dates>).pairs -> $p {
             %api{$p.key} = $p.value;
@@ -625,7 +629,7 @@ sub build-api-params(Str:D $etype, %query, $properties --> Hash:D) {
 
     if %q<frame>:exists {
         my $f = norm(%q<frame>);
-        my %frame = %FRAME-MAP{$f} // die "Unsupported frame '%q<frame>'";
+        my %frame = %FRAME-MAP{$f} // die "Unsupported frame '%q<frame>'.";
         for %frame.pairs -> $p {
             %api{$p.key} = $p.value;
         }
@@ -635,7 +639,7 @@ sub build-api-params(Str:D $etype, %query, $properties --> Hash:D) {
         %api<TIME_TYPE> = 'TDB';
         %api<OUT_UNITS> = 'KM-S';
         my $corr = norm(%q<corrections> // 'none');
-        %api<VEC_CORR> = %STATE-CORR{$corr} // die "Unsupported corrections '%q<corrections>'";
+        %api<VEC_CORR> = %STATE-CORR{$corr} // die "Unsupported corrections '%q<corrections>'.";
         %api<VEC_TABLE> = "'" ~ state-columns-group($properties) ~ "'";
     }
 
@@ -803,10 +807,10 @@ sub state-columns-group($properties --> Str:D) {
 
     my $has-uncertainty = @props.grep(* ~~ /'uncertainty'/).so;
     my $has-range = @props.grep(* eq any(<distance radial-velocity light-time>)).so;
-    die 'Any uncertainty property cannot be queried along with light-time, distance or radial-velocity for state ephemeris'
+    die 'Any uncertainty property cannot be queried along with light-time, distance or radial-velocity for state ephemeris.'
         if $has-uncertainty && $has-range;
 
-    my @groups = @props.map({ %STATE-PROP-GROUP{$_} // die "Unsupported state property '$_'" }).unique;
+    my @groups = @props.map({ %STATE-PROP-GROUP{$_} // die "Unsupported state property '$_'." }).unique;
     @groups = <2> unless @groups.elems;
 
     @groups.sort({ %STATE-GROUP-RANK{$^a} <=> %STATE-GROUP-RANK{$^b} })[0];
@@ -820,7 +824,7 @@ sub observer-quantities($properties --> Str:D) {
 
     return 'A' if @props.grep(* eq 'all').so;
 
-    my @codes = @props.map({ %observerPropToHorizons{$_} // die "Unsupported observer property '$_'" }).unique.sort;
+    my @codes = @props.map({ %observerPropToHorizons{$_} // die "Unsupported observer property '$_'." }).unique.sort;
     @codes.join(',');
 }
 
