@@ -16,6 +16,7 @@ through the [HTTP API](https://ssd-api.jpl.nasa.gov/doc/horizons.html).
 - Convenience methods for `OBSERVER`, `VECTORS`, `ELEMENTS`, `APPROACH`, and `SPK` requests.
 - Raises typed exceptions for HTTP errors and API-level JSON errors.
 
+
 ----
 
 ### Long epoch lists and request transport
@@ -26,12 +27,24 @@ would exceed the client's `url-length-limit` (default: 1800 characters).
 Choose a transport explicitly when needed:
 
 ```raku
+use WWW::HorizonsEphemerisSystem;
 horizons-ephemeris-data(
-    'state',
-    { target => '499', dates => @many-epochs },
-    'position',
-    :transport<file>,
+        'state',
+        {
+          target => '499',
+          center => '500@499',
+          dates  => [
+            '2000-01-01 00:00:00',
+            '2026-12-31 23:59:59',
+            '1 y',
+          ],
+        },
+        'position',
+        :transport<file>,
 );
+```
+```
+# [{Calendar Date (TDB) => A.D. 2000-Jan-01 00:00:00.0000, Date => 2451544.500000000, Vx => 0, Vy => 0, Vz => 0, X => 0, Y => 0, Z => 0} {Calendar Date (TDB) => A.D. 2001-Jan-01 00:00:00.0000, Date => 2451910.500000000, Vx => 0, Vy => 0, Vz => 0, X => 0, Y => 0, Z => 0} {Calendar Date (TDB) => A.D. 2002-Jan-01 00:00:00.0000, Date => 2452275.500000000, Vx => 0, Vy => 0, Vz => 0, X => 0, Y => 0, Z => 0} {Calendar Date (TDB) => A.D. 2003-Jan-01 00:00:00.0000, Date => 2452640.500000000, Vx => 0, Vy => 0, Vz => 0, X => 0, Y => 0, Z => 0} {Calendar Date (TDB) => A.D. 2004-Jan-01 00:00:00.0000, Date => 2453005.500000000, Vx => 0, Vy => 0, Vz => 0, X => 0, Y => 0, Z => 0} {Calendar Date (TDB) => A.D. 2005-Jan-01 00:00:00.0000, Date => 2453371.500000000, Vx => 0, Vy => 0, Vz => 0, X => 0, Y => 0, Z => 0} {Calendar Date (TDB) => A.D. 2006-Jan-01 00:00:00.0000, Date => 2453736.500000000, Vx => 0, Vy => 0, Vz => 0, X => 0, Y => 0, Z => 0} {Calendar Date (TDB) => A.D. 2007-Jan-01 00:00:00.0000, Date => 2454101.500000000, Vx => 0, Vy => 0, Vz => 0, X => 0, Y => 0, Z => 0} {Calendar Date (TDB) => A.D. 2008-Jan-01 00:00:00.0000, Date => 2454466.500000000, Vx => 0, Vy => 0, Vz => 0, X => 0, Y => 0, Z => 0} {Calendar Date (TDB) => A.D. 2009-Jan-01 00:00:00.0000, Date => 2454832.500000000, Vx => 0, Vy => 0, Vz => 0, X => 0, Y => 0, Z => 0} {Calendar Date (TDB) => A.D. 2010-Jan-01 00:00:00.0000, Date => 2455197.500000000, Vx => 0, Vy => 0, Vz => 0, X => 0, Y => 0, Z => 0} {Calendar Date (TDB) => A.D. 2011-Jan-01 00:00:00.0000, Date => 2455562.500000000, Vx => 0, Vy => 0, Vz => 0, X => 0, Y => 0, Z => 0} {Calendar Date (TDB) => A.D. 2012-Jan-01 00:00:00.0000, Date => 2455927.500000000, Vx => 0, Vy => 0, Vz => 0, X => 0, Y => 0, Z => 0} {Calendar Date (TDB) => A.D. 2013-Jan-01 00:00:00.0000, Date => 2456293.500000000, Vx => 0, Vy => 0, Vz => 0, X => 0, Y => 0, Z => 0} {Calendar Date (TDB) => A.D. 2014-Jan-01 00:00:00.0000, Date => 2456658.500000000, Vx => 0, Vy => 0, Vz => 0, X => 0, Y => 0, Z => 0} {Calendar Date (TDB) => A.D. 2015-Jan-01 00:00:00.0000, Date => 2457023.500000000, Vx => 0, Vy => 0, Vz => 0, X => 0, Y => 0, Z => 0} {Calendar Date (TDB) => A.D. 2016-Jan-01 00:00:00.0000, Date => 2457388.500000000, Vx => 0, Vy => 0, Vz => 0, X => 0, Y => 0, Z => 0} {Calendar Date (TDB) => A.D. 2017-Jan-01 00:00:00.0000, Date => 2457754.500000000, Vx => 0, Vy => 0, Vz => 0, X => 0, Y => 0, Z => 0} {Calendar Date (TDB) => A.D. 2018-Jan-01 00:00:00.0000, Date => 2458119.500000000, Vx => 0, Vy => 0, Vz => 0, X => 0, Y => 0, Z => 0} {Calendar Date (TDB) => A.D. 2019-Jan-01 00:00:00.0000, Date => 2458484.500000000, Vx => 0, Vy => 0, Vz => 0, X => 0, Y => 0, Z => 0} {Calendar Date (TDB) => A.D. 2020-Jan-01 00:00:00.0000, Date => 2458849.500000000, Vx => 0, Vy => 0, Vz => 0, X => 0, Y => 0, Z => 0} {Calendar Date (TDB) => A.D. 2021-Jan-01 00:00:00.0000, Date => 2459215.500000000, Vx => 0, Vy => 0, Vz => 0, X => 0, Y => 0, Z => 0} {Calendar Date (TDB) => A.D. 2022-Jan-01 00:00:00.0000, Date => 2459580.500000000, Vx => 0, Vy => 0, Vz => 0, X => 0, Y => 0, Z => 0} {Calendar Date (TDB) => A.D. 2023-Jan-01 00:00:00.0000, Date => 2459945.500000000, Vx => 0, Vy => 0, Vz => 0, X => 0, Y => 0, Z => 0} {Calendar Date (TDB) => A.D. 2024-Jan-01 00:00:00.0000, Date => 2460310.500000000, Vx => 0, Vy => 0, Vz => 0, X => 0, Y => 0, Z => 0} {Calendar Date (TDB) => A.D. 2025-Jan-01 00:00:00.0000, Date => 2460676.500000000, Vx => 0, Vy => 0, Vz => 0, X => 0, Y => 0, Z => 0} {Calendar Date (TDB) => A.D. 2026-Jan-01 00:00:00.0000, Date => 2461041.500000000, Vx => 0, Vy => 0, Vz => 0, X => 0, Y => 0, Z => 0}]
 ```
 
 The low-level client exposes the same choice through `query` and the product
@@ -44,10 +57,15 @@ product, centre, frame, reference plane, time scale, corrections, requested
 parameters, response header, and units by field:
 
 ```raku
-my @rows = horizons-ephemeris-data('state', '499', 'position');
-say @rows[0].context.time-scale;  # TDB
-say @rows[0].unit-for('X');       # km
+my @rows = horizons-ephemeris-data(
+        'state',
+        { target => '499', dates => ['2026-01-01', '2026-01-02', '1 d'] },
+        'position',
+);
 @rows[0].assert-compatible(@rows[1]);
+```
+```
+# True
 ```
 
 `:modifier<dataset>` returns an `EphemerisDataset` whose records share its
@@ -68,7 +86,7 @@ use WWW::HorizonsEphemerisSystem;
 horizons-ephemeris-data('state', '499', 'position');
 ```
 ```
-# [{Calendar Date (TDB) => A.D. 2026-Apr-12 20:36:13.0000, JDTDB => 2461143.358483796, VX => 6.287563927771337E+00, VY => 2.570580966937223E+01, VZ => 3.845332881854393E-01, X => 2.014304520912988E+08, Y => -4.647156190196239E+07, Z => -5.887010820251506E+06}]
+# [{Calendar Date (TDB) => A.D. 2026-Nov-27 15:05:54.0000, Date => 2461372.129097222, Vx => -21.39304691994182, Vy => -7.363681125650931, Vz => 0.3701431475265355, X => -94443536.08019273, Y => 222509703.6172317, Z => 7004076.247052267}]
 ```
 
 Get the position of Mars for a specific date:
@@ -83,7 +101,7 @@ horizons-ephemeris-data(
 );
 ```
 ```
-# [{Calendar Date (TDB) => A.D. 2026-Apr-12 00:00:00.0000, JDTDB => 2461142.500000000, VX => 6.511407089780921E+00, VY => 2.565403899986164E+01, VZ => 3.779598135296425E-01, X => 2.009557804368319E+08, Y => -4.837633215147470E+07, Z => -5.915289234365197E+06}]
+# [{Calendar Date (TDB) => A.D. 2026-Nov-27 00:00:00.0000, Date => 2461371.500000000, Vx => -21.44049181153535, Vy => -7.250543072849926, Vz => 0.3736780107277102, X => -93279446.55129047, Y => 222906875.8378729, Z => 6983861.389652953}]
 ```
 
 Define a location on Earth (Moscow):
@@ -113,7 +131,8 @@ horizons-ephemeris-data(
 );
 ```
 ```
-# [{/r => 0.9650163, 1-way_down_LT => 3.9323841123E+05, 399_ins_LT => -37.612316, APmag => n.a., Ang-diam => 287949.1, App_Lon_Sun => 257.0483, Area_3sig => n.a., Azi_(a-app) => 1653.945, Cnst => 82.464, DEC_(ICRF) => , DEC_(ICRF-a-app) => 48.7094620, DEC_(a-app) => -20.08113, DEC_3sigma => 0.000354, DOP_S_3sig => n.a., DOP_X_3sig => n.a., Date_________JDUT => 2461142.500000000, Def_illu => 5.620, Elev_(a-app) => 518.2465, GlxLat => 67.99522, GlxLon => 271.57141, I_d(DEC)/dt => -        20.08144, I_dRA*cosD => 315.73674, Illu% => -9.202, L_Ap_Hour_Ang => n.a., L_Ap_SOL_Time => 27.636889, L_Ap_Sid_Time => n.a., Lun_Sky_Brt => 72.602164, MN_Illu% => 110.4423, N.Pole-DC => -3.1132741, N.Pole-RA => 312.7140735, NP.ang => 72.15, NP.dist => -853.92, O-P-T => 0.0000, ObsEcLat => 69.185618, ObsEcLon => Cap, ObsSub-LAT => 1822.638, ObsSub-LON => *, PAB-LAT => 110.4443, PAB-LON => -5.218814985, POS_3sigma => n.a., PlAng => 252.258, PsAMV => n.a., PsAng => 32.5352, R.A._(ICRF) => , R.A._(a-app) => 315.73894, RA_(ICRF-a-app) => -2.7307, RA_3sigma => 2.4931584775, RNGRT_3sig => n.a., RNG_3sigma => n.a., RT_delay_3sig => n.a., RelVel-ANG => 28.887304, S-O-T => 29.3223939, S-T-O => 69.4168, S-brt => n.a., SMAA_3sig => n.a., SMIA_3sig => n.a., SN.ang => 243.405897, SN.dist => 1.087721, SatPANG => n.a., Sky_mot_PA => 515.0509, Sky_motion => 1654.943, SunSub-LAT => 3.779346, SunSub-LON => 353.977365, T-O-M => /L, TDB-UT => 3.26344, Theta => n.a., Tru_Anom => n.a., UT1-UTC => n.a., VmagOb => 0.02186170, VmagSn => -0.2978766, X_(sat-prim) => 675.19, Y_(sat-prim) => 466.45, a-mass => n.a., ang-sep => 32.53516, d(DEC)/dt => -19.97756, d(ELV)/dt => -10.077869, dAZ*cosE => 110.826491, dRA*cosD => 316.11284, deldot => -0.3394243, delta => 1.498023722E+08, hEcl-Lat => 909.337, hEcl-Lon => 344.7230, mag_ex => 15.8553742199, phi => n.a., r => 201.8768, rdot => -0.0042, sky_SNR => -17.98148, vis. => 1229.640} {/r => 1.0344294, 1-way_down_LT => 3.8797288474E+05, 399_ins_LT => -46.738640, APmag => n.a., Ang-diam => 280542.6, App_Lon_Sun => 263.9097, Area_3sig => n.a., Azi_(a-app) => 1756.465, Cnst => 73.909, DEC_(ICRF) => , DEC_(ICRF-a-app) => 50.1537916, DEC_(a-app) => -15.09860, DEC_3sigma => 0.000354, DOP_S_3sig => n.a., DOP_X_3sig => n.a., Date_________JDUT => 2461143.500000000, Def_illu => 5.862, Elev_(a-app) => 683.1413, GlxLat => 67.98781, GlxLon => 271.56388, I_d(DEC)/dt => -        15.09948, I_dRA*cosD => 328.03551, Illu% => -8.629, L_Ap_Hour_Ang => n.a., L_Ap_SOL_Time => 39.670343, L_Ap_Sid_Time => n.a., Lun_Sky_Brt => 68.747463, MN_Illu% => 122.1856, N.Pole-DC => -2.0470160, N.Pole-RA => 325.4144775, NP.ang => 68.89, NP.dist => -781.71, O-P-T => 0.0000, ObsEcLat => 69.185614, ObsEcLon => Cap, ObsSub-LAT => 1847.375, ObsSub-LON => *, PAB-LAT => 122.1888, PAB-LON => -5.971922631, POS_3sigma => n.a., PlAng => 248.974, PsAMV => n.a., PsAng => 23.3645, R.A._(ICRF) => , R.A._(a-app) => 328.03860, RA_(ICRF-a-app) => -2.1173, RA_3sigma => 2.4974327612, RNGRT_3sig => n.a., RNG_3sigma => n.a., RT_delay_3sig => n.a., RelVel-ANG => 31.410589, S-O-T => 29.1232436, S-T-O => 57.6888, S-brt => n.a., SMAA_3sig => n.a., SMIA_3sig => n.a., SN.ang => 231.195304, SN.dist => 1.098205, SatPANG => n.a., Sky_mot_PA => 680.6172, Sky_motion => 1757.444, SunSub-LAT => 2.386089, SunSub-LON => 353.476115, T-O-M => /L, TDB-UT => 2.19327, Theta => n.a., Tru_Anom => n.a., UT1-UTC => n.a., VmagOb => 0.02156897, VmagSn => -0.3168424, X_(sat-prim) => 682.43, Y_(sat-prim) => 494.25, a-mass => n.a., ang-sep => 23.36449, d(DEC)/dt => -14.97586, d(ELV)/dt => -12.099241, dAZ*cosE => 98.901756, dRA*cosD => 328.39509, deldot => -0.2584441, delta => 1.497762715E+08, hEcl-Lat => 922.887, hEcl-Lon => 341.6949, mag_ex => 15.9210831588, phi => n.a., r => 202.8425, rdot => -0.0013, sky_SNR => -17.83930, vis. => 1415.745} {/r => 1.0344294, 1-way_down_LT => 3.8797288474E+05, 399_ins_LT => -46.738640, APmag => n.a., Ang-diam => 280542.6, App_Lon_Sun => 263.9097, Area_3sig => n.a., Azi_(a-app) => 1756.465, Cnst => 73.909, DEC_(ICRF) => , DEC_(ICRF-a-app) => 50.1537916, DEC_(a-app) => -15.09860, DEC_3sigma => 0.000354, DOP_S_3sig => n.a., DOP_X_3sig => n.a., Date_________JDUT => 2461143.500000000, Def_illu => 5.862, Elev_(a-app) => 683.1413, GlxLat => 67.98781, GlxLon => 271.56388, I_d(DEC)/dt => -        15.09948, I_dRA*cosD => 328.03551, Illu% => -8.629, L_Ap_Hour_Ang => n.a., L_Ap_SOL_Time => 39.670343, L_Ap_Sid_Time => n.a., Lun_Sky_Brt => 68.747463, MN_Illu% => 122.1856, N.Pole-DC => -2.0470160, N.Pole-RA => 325.4144775, NP.ang => 68.89, NP.dist => -781.71, O-P-T => 0.0000, ObsEcLat => 69.185614, ObsEcLon => Cap, ObsSub-LAT => 1847.375, ObsSub-LON => *, PAB-LAT => 122.1888, PAB-LON => -5.971922631, POS_3sigma => n.a., PlAng => 248.974, PsAMV => n.a., PsAng => 23.3645, R.A._(ICRF) => , R.A._(a-app) => 328.03860, RA_(ICRF-a-app) => -2.1173, RA_3sigma => 2.4974327612, RNGRT_3sig => n.a., RNG_3sigma => n.a., RT_delay_3sig => n.a., RelVel-ANG => 31.410589, S-O-T => 29.1232436, S-T-O => 57.6888, S-brt => n.a., SMAA_3sig => n.a., SMIA_3sig => n.a., SN.ang => 231.195304, SN.dist => 1.098205, SatPANG => n.a., Sky_mot_PA => 680.6172, Sky_motion => 1757.444, SunSub-LAT => 2.386089, SunSub-LON => 353.476115, T-O-M => /L, TDB-UT => 2.19327, Theta => n.a., Tru_Anom => n.a., UT1-UTC => n.a., VmagOb => 0.02156897, VmagSn => -0.3168424, X_(sat-prim) => 682.43, Y_(sat-prim) => 494.25, a-mass => n.a., ang-sep => 23.36449, d(DEC)/dt => -14.97586, d(ELV)/dt => -12.099241, dAZ*cosE => 98.901756, dRA*cosD => 328.39509, deldot => -0.2584441, delta => 1.497762715E+08, hEcl-Lat => 922.887, hEcl-Lon => 341.6949, mag_ex => 15.9210831588, phi => n.a., r => 202.8425, rdot => -0.0013, sky_SNR => -17.83930, vis. => 1415.745}]
+#ERROR: Bad dates -- start must be earlier than stop
+# Nil
 ```
 
 Get the orbital elements of Saturn's moon Pandora for a specific list of date-times:
@@ -133,7 +152,7 @@ horizons-ephemeris-data(
 );
 ```
 ```
-# {2451553.500000000 => {ApoapsisDistance => 1.433743106559601E+05, AscendingNodeLongitude => 1.696335315019282E+02, Calendar Date (TDB) => A.D. 2000-Jan-10 00:00:00.0000, Date => 2451553.500000000, Eccentricity => 7.172397742012902E-03, Inclination => 2.805499635514195E+01, MeanAnomaly => 3.268105687601845E+02, MeanMotion => 6.570065022861554E-03, OrbitalPeriod => 5.479397825551567E+04, PeriapsisDate => 2.451553558467752E+06, PeriapsisDistance => 1.413322817355549E+05, PerifocusArgument => 1.592125915955030E+02, SemiMajorAxis => 1.423532961957575E+05, TrueAnomaly => 3.263572600664454E+02}, 2451554.500000000 => {ApoapsisDistance => 1.427587809891930E+05, AscendingNodeLongitude => 1.696327742925100E+02, Calendar Date (TDB) => A.D. 2000-Jan-11 00:00:00.0000, Date => 2451554.500000000, Eccentricity => 2.891206540971475E-03, Inclination => 2.805729862777266E+01, MeanAnomaly => 6.597381843160082E+01, MeanMotion => 6.570485300699162E-03, OrbitalPeriod => 5.479047338583843E+04, PeriapsisDate => 2.451554383785470E+06, PeriapsisDistance => 1.419356705287859E+05, PerifocusArgument => 2.728440191077048E+02, SemiMajorAxis => 1.423472257589894E+05, TrueAnomaly => 6.627686610268884E+01}}
+# {2451553.500000000 => {ApoapsisDistance => 143374.3106559601, AscendingNodeLongitude => 169.6335315019282, Calendar Date (TDB) => A.D. 2000-Jan-10 00:00:00.0000, Date => 2451553.500000000, Eccentricity => 0.007172397742012902, Inclination => 28.05499635514195, MeanAnomaly => 326.8105687601845, MeanMotion => 0.006570065022861554, OrbitalPeriod => 54793.97825551567, PeriapsisDate => 2.451553558467752E+06, PeriapsisDistance => 141332.2817355549, PerifocusArgument => 159.212591595503, SemiMajorAxis => 142353.2961957575, TrueAnomaly => 326.3572600664454}, 2451554.500000000 => {ApoapsisDistance => 142758.780989193, AscendingNodeLongitude => 169.63277429251, Calendar Date (TDB) => A.D. 2000-Jan-11 00:00:00.0000, Date => 2451554.500000000, Eccentricity => 0.002891206540971475, Inclination => 28.05729862777266, MeanAnomaly => 65.97381843160082, MeanMotion => 0.006570485300699162, OrbitalPeriod => 54790.47338583843, PeriapsisDate => 2.451554383785470E+06, PeriapsisDistance => 141935.6705287859, PerifocusArgument => 272.8440191077048, SemiMajorAxis => 142347.2257589894, TrueAnomaly => 66.27686610268884}}
 ```
 
 ----
@@ -146,7 +165,7 @@ use WWW::HorizonsEphemerisSystem;
 my $client = horizons-client();
 ```
 ```
-# WWW::HorizonsEphemerisSystem::Client::WWW::HorizonsEphemerisSystem::Client.new(api-url => "https://ssd.jpl.nasa.gov/api/horizons.api", expected-api-version => "1.3", strict-version-check => Bool::False)
+# WWW::HorizonsEphemerisSystem::Client.new(api-url => "https://ssd.jpl.nasa.gov/api/horizons.api", file-api-url => "https://ssd.jpl.nasa.gov/api/horizons_file.api", url-length-limit => 1800, expected-api-version => "1.3", expected-file-api-version => "1.0", strict-version-check => Bool::False)
 ```
 
 ----
@@ -200,7 +219,7 @@ say $response.result;
 # 
 # 
 # *******************************************************************************
-# Ephemeris / API_USER Sun Apr 12 13:36:17 2026 Pasadena, USA      / Horizons    
+# Ephemeris / API_USER Fri Nov 27 07:05:57 2026 Pasadena, USA      / Horizons    
 # *******************************************************************************
 # Target body name: Mars (499)                      {source: mar099}
 # Center body name: Earth (399)                     {source: DE441}
@@ -224,8 +243,8 @@ say $response.result;
 # RA format       : HMS
 # Time format     : CAL 
 # Calendar mode   : Mixed Julian/Gregorian
-# EOP file        : eop.260410.p260707                                           
-# EOP coverage    : DATA-BASED 1962-JAN-20 TO 2026-APR-10. PREDICTS-> 2026-JUL-06
+# EOP file        : eop.261126.p270222                                           
+# EOP coverage    : DATA-BASED 1962-JAN-20 TO 2026-NOV-26. PREDICTS-> 2027-FEB-21
 # Units conversion: 1 au= 149597870.700 km, c= 299792.458 km/s, 1 day= 86400.0 s 
 # Table cut-offs 1: Elevation (-90.0deg=NO ),Airmass (>38.000=NO), Daylight (NO )
 # Table cut-offs 2: Solar elongation (  0.0,180.0=NO ),Local Hour Angle( 0.0=NO )
@@ -240,20 +259,20 @@ say $response.result;
 #  2006-Jan-04 00:00     02 35 15.96 +16 52 14.5   -0.523   4.454  0.80104071550073  15.0725261  118.3569 /T   34.3070   Ari
 #  2006-Jan-05 00:00     02 36 20.56 +16 58 02.8   -0.487   4.465  0.80977518809526  15.1724248  117.6126 /T   34.5451   Ari
 #  2006-Jan-06 00:00     02 37 27.23 +17 03 57.5   -0.440   4.488  0.81856633892153  15.2688184  116.8766 /T   34.7742   Ari
-#  2006-Jan-07 00:00     02 38 35.91 +17 09 58.0   -0.422   4.481  0.82741220692898  15.3619283  116.1487 /T   34.9944   Ari
+#  2006-Jan-07 00:00     02 38 35.91 +17 09 58.0   -0.423   4.480  0.82741220692898  15.3619283  116.1487 /T   34.9944   Ari
 #  2006-Jan-08 00:00     02 39 46.57 +17 16 04.2   -0.405   4.474  0.83631095987380  15.4519763  115.4287 /T   35.2060   Ari
-#  2006-Jan-09 00:00     02 40 59.14 +17 22 15.6   -0.371   4.484  0.84526089082616  15.5391730  114.7164 /T   35.4092   Ari
+#  2006-Jan-09 00:00     02 40 59.14 +17 22 15.6   -0.371   4.483  0.84526089082616  15.5391730  114.7164 /T   35.4092   Ari
 #  2006-Jan-10 00:00     02 42 13.60 +17 28 32.0   -0.328   4.502  0.85426040925600  15.6237103  114.0116 /T   35.6041   Ari
-#  2006-Jan-11 00:00     02 43 29.89 +17 34 53.2   -0.313   4.494  0.86330802951239  15.7057591  113.3142 /T   35.7911   Ari
-#  2006-Jan-12 00:00     02 44 47.97 +17 41 18.7   -0.303   4.479  0.87240235823975  15.7854680  112.6238 /T   35.9702   Ari
-#  2006-Jan-13 00:00     02 46 07.80 +17 47 48.3   -0.279   4.480  0.88154208138094  15.8629630  111.9404 /T   36.1417   Ari
-#  2006-Jan-14 00:00     02 47 29.34 +17 54 21.7   -0.266   4.470  0.89072595104293  15.9383472  111.2637 /T   36.3058   Ari
-#  2006-Jan-15 00:00     02 48 52.56 +18 00 58.7   -0.244   4.468  0.89995277250819  16.0117018  110.5935 /T   36.4627   Ari
-#  2006-Jan-16 00:00     02 50 17.42 +18 07 39.0   -0.225   4.463  0.90922139183063  16.0830870  109.9297 /T   36.6124   Ari
-#  2006-Jan-17 00:00     02 51 43.88 +18 14 22.3   -0.228   4.437  0.91853068454968  16.1525452  109.2722 /T   36.7553   Ari
-#  2006-Jan-18 00:00     02 53 11.91 +18 21 08.4   -0.198   4.445  0.92787954597364  16.2201032  108.6207 /T   36.8914   Ari
+#  2006-Jan-11 00:00     02 43 29.89 +17 34 53.2   -0.313   4.493  0.86330802951239  15.7057591  113.3142 /T   35.7911   Ari
+#  2006-Jan-12 00:00     02 44 47.97 +17 41 18.7   -0.304   4.478  0.87240235823975  15.7854680  112.6238 /T   35.9702   Ari
+#  2006-Jan-13 00:00     02 46 07.80 +17 47 48.3   -0.280   4.479  0.88154208138094  15.8629630  111.9404 /T   36.1417   Ari
+#  2006-Jan-14 00:00     02 47 29.34 +17 54 21.7   -0.266   4.469  0.89072595104293  15.9383472  111.2637 /T   36.3058   Ari
+#  2006-Jan-15 00:00     02 48 52.56 +18 00 58.7   -0.245   4.467  0.89995277250819  16.0117018  110.5935 /T   36.4627   Ari
+#  2006-Jan-16 00:00     02 50 17.42 +18 07 39.0   -0.226   4.463  0.90922139183063  16.0830870  109.9297 /T   36.6124   Ari
+#  2006-Jan-17 00:00     02 51 43.88 +18 14 22.3   -0.229   4.436  0.91853068454968  16.1525452  109.2722 /T   36.7553   Ari
+#  2006-Jan-18 00:00     02 53 11.91 +18 21 08.4   -0.200   4.443  0.92787954597364  16.2201032  108.6207 /T   36.8914   Ari
 #  2006-Jan-19 00:00     02 54 41.49 +18 27 57.0   -0.176   4.444  0.93726688321527  16.2857753  107.9751 /T   37.0209   Ari
-#  2006-Jan-20 00:00     02 56 12.58 +18 34 48.0   -0.161   4.437  0.94669160877907  16.3495662  107.3353 /T   37.1439   Ari
+#  2006-Jan-20 00:00     02 56 12.58 +18 34 48.0   -0.162   4.436  0.94669160877907  16.3495662  107.3353 /T   37.1439   Ari
 # $$EOE
 # **************************************************************************************************************************
 # Column meaning:
@@ -385,7 +404,7 @@ say $response.result;
 #                   command-line   telnet ssd.jpl.nasa.gov 6775
 #                   e-mail/batch   https://ssd.jpl.nasa.gov/ftp/ssd/horizons_batch.txt
 #                   scripts        https://ssd.jpl.nasa.gov/ftp/ssd/SCRIPTS
-#     Author      : Jon.D.Giorgini@jpl.nasa.gov
+#     Inquiries   : Jon.D.Giorgini@jpl.nasa.gov
 # 
 # **************************************************************************************************************************
 ```
@@ -395,7 +414,7 @@ say $response.result;
 ## Implementation details
 
 - The first version -- 0.0.1 -- was made using ChatGPT Codex with "gpt-5.3-codex" over the API spec [horizons.html](https://ssd-api.jpl.nasa.gov/doc/horizons.html).
-
+  
   - See ["prompts.md"](./docs/prompts.md) for the development evolution by LLM prompts.
     - Some other interactive convincing was needed besides those prompts.
 
@@ -405,6 +424,12 @@ say $response.result;
 
 - The overall functionalities design is very similar to the Wolfram Language [`HorizonsEphemerisData`](https://resources.wolframcloud.com/FunctionRepository/resources/HorizonsEphemerisData), [TTf1].
   - The [Raku spec](./resources/HorizonsEphemerisData-spec-Raku.md) given to ChatGPT was made from the Wolfram Language documentation of [TTf1].
+
+- Version 0.0.3 was done with a OpenAI's Codex AI-agent.
+  - A major refactoring for using both GET and POST.
+    - Automatic switch to POST for larger requests.
+  - Various "small" API fixes.
+  - That version tested by using it to write the Raku Advent Calendar 2026 post "Chasing the Moon".
 
 ----
 

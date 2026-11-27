@@ -27,11 +27,20 @@ would exceed the client's `url-length-limit` (default: 1800 characters).
 Choose a transport explicitly when needed:
 
 ```raku
+use WWW::HorizonsEphemerisSystem;
 horizons-ephemeris-data(
-    'state',
-    { target => '499', dates => @many-epochs },
-    'position',
-    :transport<file>,
+        'state',
+        {
+          target => '499',
+          center => '500@499',
+          dates  => [
+            '2000-01-01 00:00:00',
+            '2026-12-31 23:59:59',
+            '1 y',
+          ],
+        },
+        'position',
+        :transport<file>,
 );
 ```
 
@@ -45,9 +54,11 @@ product, centre, frame, reference plane, time scale, corrections, requested
 parameters, response header, and units by field:
 
 ```raku
-my @rows = horizons-ephemeris-data('state', '499', 'position');
-say @rows[0].context.time-scale;  # TDB
-say @rows[0].unit-for('X');       # km
+my @rows = horizons-ephemeris-data(
+        'state',
+        { target => '499', dates => ['2026-01-01', '2026-01-02', '1 d'] },
+        'position',
+);
 @rows[0].assert-compatible(@rows[1]);
 ```
 
@@ -170,6 +181,12 @@ say $response.result;
 
 - The overall functionalities design is very similar to the Wolfram Language [`HorizonsEphemerisData`](https://resources.wolframcloud.com/FunctionRepository/resources/HorizonsEphemerisData), [TTf1].
   - The [Raku spec](./resources/HorizonsEphemerisData-spec-Raku.md) given to ChatGPT was made from the Wolfram Language documentation of [TTf1].
+
+- Version 0.0.3 was done with a OpenAI's Codex AI-agent.
+  - A major refactoring for using both GET and POST.
+    - Automatic switch to POST for larger requests.
+  - Various "small" API fixes.
+  - That version tested by using it to write the Raku Advent Calendar 2026 post "Chasing the Moon".
 
 ----
 
