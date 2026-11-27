@@ -42,8 +42,8 @@ VECT
         self!response(q:to/OBS/);
 HEADER
 $$SOE
-Date_________JDTT,Azimuth_(a-app),Elevation_(a-app)
-2451544.5,120.5,35.2
+Date_________JDUT, , ,Azi_(a-app),Elev_(a-app),
+2451544.5,N, ,120.5,35.2,
 $$EOE
 OBS
     }
@@ -140,7 +140,9 @@ my @observer = horizons-ephemeris-data(
 );
 
 is @observer.elems, 1, 'observer example returns parsed row';
-is @observer[0]<Azimuth>, '120.5', 'observer azimuth is parsed';
+is @observer[0]<Azimuth>, 120.5, 'observer azimuth remains aligned after blank marker columns';
+is @observer[0]<Elevation>, 35.2, 'observer elevation remains aligned after blank marker columns';
+ok !@observer[0]<Azimuth>.isa(Failure), 'observer marker codes are not coerced as azimuth';
 
 my %call3 = $mock.calls[*-1];
 is %call3<method>, 'observer', 'observer etype uses observer-ephemeris';

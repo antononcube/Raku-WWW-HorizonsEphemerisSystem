@@ -855,9 +855,14 @@ sub parse-result-table(Str:D $result --> Hash:D) {
     }
     return { headers => [], rows => [], header => parse-response-header(@all[0 ..^ $soe]) } unless $header-line.defined;
 
-    my @headers = split-csv-line($header-line)
-        .map(*.trim)
-        .grep(*.chars);
+    # Horizons observer tables can include unnamed marker columns (for
+    # example solar/lunar-presence flags) between the date and numeric
+    # quantities.  They must remain in the header list so that subsequent
+    # columns retain their CSV positions.
+    my @headers = split-csv-line($header-line).map(*.trim);
+    @headers = @headers.kv.map(-> $index, $header {
+        $header.chars ?? $header !! "__horizons_blank_column_$index";
+    });
     return { headers => [], rows => [], header => parse-response-header(@all[0 ..^ $soe]) } unless @headers.elems;
 
     my @rows;
@@ -1026,6 +1031,10 @@ sub split-csv-line(Str:D $line --> Array:D) {
     @out;
 }
 
+sub is-horizons-blank-column(Str:D $column --> Bool:D) {
+    $column.starts-with('__horizons_blank_column_');
+}
+
 #----------------------------------------------------------
 # Time conversion functions
 #----------------------------------------------------------
@@ -1068,6 +1077,7 @@ sub map-orbital-record($row where * ~~ Associative --> Hash:D) {
     my %mapped;
 
     for $row.kv -> $k, $v is copy {
+        next if is-horizons-blank-column($k);
         my $mk = %orbitalPropertiesMapping{$k} // $k;
         next if %mapped{$mk}:exists && %mapped{$mk}.Str.chars;
         if %orbitalPropertiesInfo{$mk}.tail ∈ <Numeric Quantity> { $v .= Numeric }
@@ -1081,6 +1091,7 @@ sub map-state-record($row where * ~~ Associative --> Hash:D) {
     my %mapped;
 
     for $row.kv -> $k, $v is copy {
+        next if is-horizons-blank-column($k);
         my $mk = %statePropertiesMapping{$k} // $k;
         next if %mapped{$mk}:exists && %mapped{$mk}.Str.chars;
         if %statePropertiesInfo{$mk}.tail ∈ <Numeric Quantity> { $v .= Numeric }
@@ -1094,6 +1105,7 @@ sub map-observer-record($row where * ~~ Associative --> Hash:D) {
     my %mapped;
 
     for $row.kv -> $k, $v is copy {
+        next if is-horizons-blank-column($k);
         my $mk = %observerPropertiesMapping{$k} // $k;
         next if %mapped{$mk}:exists && %mapped{$mk}.Str.chars;
         if %observerPropertiesInfo{$mk}.tail ∈ <Numeric Quantity> { $v .= Numeric }
